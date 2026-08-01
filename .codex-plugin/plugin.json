@@ -1,0 +1,25 @@
+{
+  "name": "gravity-ui-dev-skills",
+  "version": "1.0.0",
+  "description": "Skills for developing in Gravity UI repositories",
+  "author": {
+    "name": "gravity-ui"
+  },
+  "homepage": "https://github.com/gravity-ui/skills-dev",
+  "repository": "https://github.com/gravity-ui/skills-dev",
+  "keywords": ["gravity-ui", "skills", "development", "contributing", "pull-request", "github-cli"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Gravity UI Dev Skills",
+    "shortDescription": "Skills for developing in Gravity UI repositories",
+    "longDescription": "Skills for contributors and maintainers working inside the Gravity UI repositories themselves — conventions, checks, and release flow shared across the ecosystem. One SKILL.md per skill, plus optional scripts. The current skill list is in the repository README.",
+    "developerName": "gravity-ui",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "Prepare a pull request for this Gravity UI repository.",
+      "Check my changes against the Gravity UI contribution rules.",
+      "What should the title of this pull request be?"
+    ]
+  }
+}

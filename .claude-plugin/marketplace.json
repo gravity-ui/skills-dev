@@ -1,0 +1,16 @@
+{
+  "name": "gravity-ui-dev-marketplace",
+  "owner": {
+    "name": "gravity-ui"
+  },
+  "metadata": {
+    "description": "Skills for developing in Gravity UI repositories"
+  },
+  "plugins": [
+    {
+      "name": "gravity-ui-dev-skills",
+      "source": "./",
+      "description": "Skills for developing in Gravity UI repositories"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "name": "gravity-ui-dev-skills",
+  "description": "Skills for developing in Gravity UI repositories",
+  "version": "1.0.0",
+  "author": {
+    "name": "gravity-ui"
+  },
+  "homepage": "https://github.com/gravity-ui/skills-dev",
+  "repository": "https://github.com/gravity-ui/skills-dev",
+  "keywords": ["gravity-ui", "skills", "development", "contributing", "pull-request", "github-cli"]
+}

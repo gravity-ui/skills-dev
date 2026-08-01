@@ -1,0 +1,14 @@
+{
+  "name": "gravity-ui-dev-skills",
+  "version": "1.0.0",
+  "description": "Skills for developing in Gravity UI repositories",
+  "keywords": ["pi-package"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gravity-ui/skills-dev"
+  },
+  "pi": {
+    "skills": ["skills"]
+  }
+}
