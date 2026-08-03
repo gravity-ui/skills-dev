@@ -1,0 +1,32 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate skills, plugin manifests & version sync
+        run: node scripts/validate_skills.mjs
+
+      - name: Check committed agent symlinks resolve
+        run: |
+          # Each agent discovers skills through its own directory; all three are symlinks to
+          # skills/. Compare resolved paths rather than naming a specific skill, so adding or
+          # renaming skills never breaks this check.
+          expected=$(realpath skills)
+          for link in .claude/skills .agents/skills .opencode/skills; do
+            test -L "$link" || { echo "✗ $link is not a symlink"; exit 1; }
+            resolved=$(realpath "$link" 2>/dev/null) || { echo "✗ $link does not resolve"; exit 1; }
+            test "$resolved" = "$expected" || { echo "✗ $link -> $resolved, expected $expected"; exit 1; }
+            echo "✓ $link -> $(readlink "$link")"
+          done
