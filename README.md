@@ -127,7 +127,10 @@ Marketplace installs update automatically (Codex:
 ## Contributing
 
 See [AGENTS.md](./AGENTS.md) for the repository layout, how to write a skill, the version bump
-rule, and validation. Run `node scripts/validate_skills.mjs` before pushing.
+rule, and validation. Trigger eval cases live in
+[`evals/trigger-cases.json`](evals/trigger-cases.json): each maps a realistic user prompt to
+the skills expected to activate. Include both positive and negative cases when adding a skill.
+Run `node scripts/validate_skills.mjs` before pushing.
 
 ## License
 

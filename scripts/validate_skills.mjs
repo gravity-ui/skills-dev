@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, '..');
 const skillsDir = join(repoRoot, 'skills');
+const triggerEvalsPath = join(repoRoot, 'evals', 'trigger-cases.json');
 
 const NAME_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const NAME_MAX = 64;
@@ -150,6 +151,72 @@ function validateSkill(name) {
     }
     if (!/\b(use|when|for|if)\b/i.test(fm.description)) {
       warnings.push(`${name}: description should say *when* to use the skill (no trigger cue found)`);
+    }
+  }
+}
+
+function validateTriggerEvals(skills) {
+  let cases;
+  try {
+    cases = JSON.parse(readFileSync(triggerEvalsPath, 'utf8'));
+  } catch (err) {
+    errors.push(`evals/trigger-cases.json: unreadable or invalid JSON (${err.message})`);
+    return;
+  }
+
+  if (!Array.isArray(cases) || cases.length === 0) {
+    errors.push('evals/trigger-cases.json: must contain a non-empty array');
+    return;
+  }
+
+  const knownSkills = new Set(skills);
+  const ids = new Set();
+  const positiveCoverage = new Set();
+  const negativeCoverage = new Set();
+
+  for (const [index, testCase] of cases.entries()) {
+    const label = `evals/trigger-cases.json[${index}]`;
+    if (!testCase || typeof testCase !== 'object' || Array.isArray(testCase)) {
+      errors.push(`${label}: must be an object`);
+      continue;
+    }
+    if (typeof testCase.id !== 'string' || !NAME_RE.test(testCase.id)) {
+      errors.push(`${label}: \`id\` must be a kebab-case string`);
+    } else if (ids.has(testCase.id)) {
+      errors.push(`${label}: duplicate id "${testCase.id}"`);
+    } else {
+      ids.add(testCase.id);
+    }
+    if (typeof testCase.prompt !== 'string' || !testCase.prompt.trim()) {
+      errors.push(`${label}: \`prompt\` must be a non-empty string`);
+    }
+    if (!Array.isArray(testCase.expectedSkills)) {
+      errors.push(`${label}: \`expectedSkills\` must be an array`);
+      continue;
+    }
+
+    const expected = new Set();
+    for (const skill of testCase.expectedSkills) {
+      if (typeof skill !== 'string' || !knownSkills.has(skill)) {
+        errors.push(`${label}: unknown skill ${JSON.stringify(skill)}`);
+      } else if (expected.has(skill)) {
+        errors.push(`${label}: duplicate expected skill "${skill}"`);
+      } else {
+        expected.add(skill);
+        positiveCoverage.add(skill);
+      }
+    }
+    for (const skill of skills) {
+      if (!expected.has(skill)) negativeCoverage.add(skill);
+    }
+  }
+
+  for (const skill of skills) {
+    if (!positiveCoverage.has(skill)) {
+      errors.push(`evals/trigger-cases.json: no positive trigger case for "${skill}"`);
+    }
+    if (!negativeCoverage.has(skill)) {
+      errors.push(`evals/trigger-cases.json: no negative trigger case for "${skill}"`);
     }
   }
 }
@@ -322,6 +389,7 @@ if (skills.length === 0 && errors.length === 0) {
   errors.push('no skills found under skills/');
 }
 for (const name of skills) validateSkill(name);
+validateTriggerEvals(skills);
 validateVersions();
 validateClaudeManifests();
 validateCodexPlugin();
@@ -335,6 +403,6 @@ if (errors.length) {
   process.exit(1);
 }
 process.stdout.write(
-  `✓ ${skills.length} skill(s) and plugin/marketplace manifests valid`
+  `✓ ${skills.length} skill(s), trigger evals, and plugin/marketplace manifests valid`
     + `${warnings.length ? `, ${warnings.length} warning(s)` : ''}.\n`,
 );

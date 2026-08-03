@@ -1,0 +1,37 @@
+[
+  {
+    "id": "github-cli-setup-missing-command",
+    "prompt": "gh: command not found — help me set it up",
+    "expectedSkills": ["github-cli-setup"]
+  },
+  {
+    "id": "github-cli-setup-russian-auth",
+    "prompt": "Настрой gh, он пишет, что я не залогинен",
+    "expectedSkills": ["github-cli-setup"]
+  },
+  {
+    "id": "gravity-ui-pr-create-open",
+    "prompt": "Open a pull request for my changes in gravity-ui/uikit",
+    "expectedSkills": ["github-cli-setup", "gravity-ui-pr-create"]
+  },
+  {
+    "id": "gravity-ui-pr-create-title",
+    "prompt": "Как назвать PR с новым свойством loading у Button? Это feat или fix?",
+    "expectedSkills": ["gravity-ui-pr-create"]
+  },
+  {
+    "id": "github-general-question",
+    "prompt": "Explain the difference between a GitHub issue and a pull request",
+    "expectedSkills": []
+  },
+  {
+    "id": "existing-pr-review",
+    "prompt": "Review the existing pull request and point out correctness issues",
+    "expectedSkills": []
+  },
+  {
+    "id": "consumer-app-pr",
+    "prompt": "Create a pull request for my application that uses @gravity-ui/uikit",
+    "expectedSkills": ["github-cli-setup"]
+  }
+]
