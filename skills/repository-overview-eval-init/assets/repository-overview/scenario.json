@@ -1,0 +1,62 @@
+{
+  "id": "repository-overview",
+  "version": 2,
+  "prompt": "Расскажи про этот репозиторий: какие в нем есть приложения или пакеты, как устроена архитектура, какой используется технологический стек и какие важные инварианты должны соблюдать разработчики. Исследуй репозиторий только на чтение. Не используй сам eval в evals/repository-overview и прошлые артефакты в .eval-artifacts/repository-overview как источники сведений о репозитории. Подкрепляй существенные утверждения относительными путями к файлам. Структурируй ответ разделами «Приложения и пакеты», «Архитектура», «Стек» и «Инварианты».",
+  "assertions": [
+    {
+      "id": "answer-applications",
+      "group": "quality",
+      "type": "answer-regex",
+      "description": "The answer describes applications or packages",
+      "pattern": "(?:приложени|пакет|applications?|packages?)"
+    },
+    {
+      "id": "answer-architecture",
+      "group": "quality",
+      "type": "answer-regex",
+      "description": "The answer has an architecture section",
+      "pattern": "(?:архитектур|architecture)"
+    },
+    {
+      "id": "answer-stack",
+      "group": "quality",
+      "type": "answer-regex",
+      "description": "The answer has a technology stack section",
+      "pattern": "(?:стек|stack)"
+    },
+    {
+      "id": "answer-invariants",
+      "group": "quality",
+      "type": "answer-regex",
+      "description": "The answer describes repository invariants",
+      "pattern": "(?:инвариант|invariants?)"
+    },
+    {
+      "id": "answer-cites-sources",
+      "group": "quality",
+      "type": "answer-existing-paths",
+      "description": "The answer cites at least two real repository files",
+      "minimum": 2
+    },
+    {
+      "id": "route-readme",
+      "group": "route",
+      "type": "trace-path-if-present",
+      "description": "The agent consults a repository README when one exists",
+      "patterns": ["^README(?:\\.[^/]+)?$"]
+    },
+    {
+      "id": "route-manifest",
+      "group": "route",
+      "type": "trace-path-if-present",
+      "description": "The agent consults a package or workspace manifest when one exists",
+      "patterns": [
+        "^package\\.json$",
+        "^pnpm-workspace\\.yaml$",
+        "^Cargo\\.toml$",
+        "^go\\.mod$",
+        "^pyproject\\.toml$"
+      ]
+    }
+  ]
+}

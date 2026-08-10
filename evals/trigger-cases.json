@@ -20,6 +20,16 @@
     "expectedSkills": ["gravity-ui-pr-create"]
   },
   {
+    "id": "repository-overview-eval-init-english",
+    "prompt": "Initialize the portable repository-overview eval in this Gravity UI repository so we can benchmark our AGENTS.md changes",
+    "expectedSkills": ["repository-overview-eval-init"]
+  },
+  {
+    "id": "repository-overview-eval-init-russian",
+    "prompt": "Скопируй эвал repository-overview в этот новый репозиторий gravity-ui и настрой gitignore для артефактов",
+    "expectedSkills": ["repository-overview-eval-init"]
+  },
+  {
     "id": "github-general-question",
     "prompt": "Explain the difference between a GitHub issue and a pull request",
     "expectedSkills": []
