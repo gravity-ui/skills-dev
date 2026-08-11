@@ -38,9 +38,45 @@ be?"
 |-------|--------------|------------------|
 | [gravity-ui-pr-create](skills/gravity-ui-pr-create/SKILL.md) | Opening a pull request in `gravity-ui/*`: the Conventional Commits title that becomes the released commit, what to write in the description, the `gh pr create` invocation | "Open a PR for this change", "What should the PR title be?" |
 | [github-cli-setup](skills/github-cli-setup/SKILL.md) | Checks that `gh` is installed, logged in, and carries the right token scopes, and fixes each failure. Used before any GitHub work — pull requests, issues, checks, releases | "gh: command not found", "gh isn't logged in", "настрой gh" |
+| [repository-overview-eval-init](skills/repository-overview-eval-init/SKILL.md) | Installs the portable repository-overview benchmark into a Gravity UI repository without overwriting local eval configuration | "Initialize the repository overview eval", "Добавь эвал обзора репозитория" |
 
 Skills activate automatically from context. The full command list for each skill is in its
 `SKILL.md`.
+
+## Portable repository overview eval
+
+The [`repository-overview-eval-init`](skills/repository-overview-eval-init/SKILL.md) skill installs a
+self-contained benchmark for measuring how an agent navigates and explains a Gravity UI repository.
+From the target repository, ask the agent:
+
+> Initialize the repository overview eval in this repository.
+
+The skill copies its [bundled eval](skills/repository-overview-eval-init/assets/repository-overview/README.md)
+to `evals/repository-overview`, adds the artifact ignore rule, and validates the installed entry
+point without starting a benchmark. Then tell the agent:
+
+> Run `evals/repository-overview/EVAL.md` for this repository.
+
+The eval starts a fresh session in the host's planning/read-only mode through Codex CLI, Claude Code,
+or OpenCode and saves the answer, raw host events, normalized tool/path trace, tokens, reported or
+explicitly estimated cost, and deterministic quality checks. It has no package dependencies and
+requires Node.js 20 or newer.
+
+Run the same eval after changing the repository harness and compare the artifact directories:
+
+```bash
+node evals/repository-overview/compare.mjs \
+  --baseline .eval-artifacts/repository-overview/runs/<baseline> \
+  --candidate .eval-artifacts/repository-overview/runs/<candidate>
+```
+
+The comparison includes a confidence-rated verdict and prioritized, evidence-backed suggestions for
+improving harness navigation, assertions, cache control, and benchmark setup.
+Runs and comparisons are kept under the ignored `.eval-artifacts/` directory, outside the portable
+eval directory, so copying the eval never copies prior results.
+
+Use the same host, model, effort, scenario, CLI version, and eval runner version on both sides.
+Cross-environment results are still reported, but deliberately classified as inconclusive.
 
 ## `AGENTS.md` for a Gravity UI repository
 

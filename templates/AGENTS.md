@@ -78,6 +78,8 @@ packaged as agent skills in
 - Opening a pull request → invoke the `gravity-ui-pr-create` skill.
 - First `gh` command of the session, or any `gh` failure → invoke the `github-cli-setup`
   skill.
+- Initializing the portable repository overview eval → invoke the
+  `repository-overview-eval-init` skill.
 
 Not installed? In Claude Code: `/plugin marketplace add gravity-ui/skills-dev`. For Codex,
 OpenCode and project-wide setup, see
