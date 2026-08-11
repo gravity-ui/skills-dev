@@ -240,6 +240,42 @@ export function readJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
+export function timestamp() {
+  return new Date().toISOString().replaceAll(':', '-');
+}
+
+export function parseArgs(args, booleanFlags = []) {
+  const out = {};
+  const flags = new Set(booleanFlags);
+  for (let index = 0; index < args.length; index++) {
+    const arg = args[index];
+    if (arg === '--help' || arg === '-h') {
+      out.help = true;
+    } else if (arg.startsWith('--')) {
+      const name = arg.slice(2);
+      const key = name.replace(/-([a-z])/g, (_, char) => char.toUpperCase());
+      if (flags.has(name)) {
+        out[key] = true;
+        continue;
+      }
+      const value = args[++index];
+      if (value === undefined || value.startsWith('--')) throw new Error(`${arg} requires a value`);
+      out[key] = value;
+    } else {
+      throw new Error(`Unexpected argument: ${arg}`);
+    }
+  }
+  return out;
+}
+
+export function format(value) {
+  return value === null || value === undefined ? 'n/a' : Number.isInteger(value) ? String(value) : value.toFixed(4);
+}
+
+export function formatPercent(value) {
+  return value === null || value === undefined ? 'n/a' : `${(value * 100).toFixed(1)}%`;
+}
+
 function collectStrings(value, out = []) {
   if (typeof value === 'string') out.push(value);
   else if (Array.isArray(value)) value.forEach((child) => collectStrings(child, out));

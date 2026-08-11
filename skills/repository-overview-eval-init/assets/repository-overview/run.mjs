@@ -11,11 +11,14 @@ import {
   assertionScores,
   estimateCost,
   evaluateAssertions,
+  format,
   listRepositoryFiles,
+  parseArgs,
   parseJsonLines,
   readJson,
   referencedPaths,
   summarize,
+  timestamp,
 } from './lib/shared.mjs';
 
 const evalRoot = dirname(fileURLToPath(import.meta.url));
@@ -79,10 +82,6 @@ async function main() {
   writeFileSync(resolve(outputDir, 'report.md'), renderReport(result));
   process.stdout.write(`${outputDir}\n`);
   if (result.mutationDetected || attempts.some((attempt) => !attempt.success)) process.exitCode = 1;
-}
-
-function timestamp() {
-  return new Date().toISOString().replaceAll(':', '-');
 }
 
 function createFreshDirectory(path, optionName) {
@@ -228,21 +227,6 @@ function commandVersion(executable) {
   return result.status === 0 ? result.stdout.trim() || result.stderr.trim() : null;
 }
 
-function parseArgs(args) {
-  const out = {};
-  for (let index = 0; index < args.length; index++) {
-    const arg = args[index];
-    if (arg === '--help' || arg === '-h') out.help = true;
-    else if (arg.startsWith('--')) {
-      const key = arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
-      const value = args[++index];
-      if (value === undefined || value.startsWith('--')) throw new Error(`${arg} requires a value`);
-      out[key] = value;
-    } else throw new Error(`Unexpected argument: ${arg}`);
-  }
-  return out;
-}
-
 function detectHost() {
   if (process.env.CODEX_THREAD_ID || process.env.CODEX_SANDBOX) return 'codex';
   if (process.env.CLAUDE_CODE_ENTRYPOINT || process.env.CLAUDECODE) return 'claude';
@@ -281,10 +265,6 @@ function renderReport(result) {
     `| Attempt | Success | Degraded | Tokens | Duration ms | Quality | Route |\n` +
     `|---:|:---:|:---:|---:|---:|---:|---:|\n${attempts}\n\n` +
     `## Observed path sequences\n\n${paths}\n`;
-}
-
-function format(value) {
-  return value === null || value === undefined ? 'n/a' : Number.isInteger(value) ? String(value) : value.toFixed(4);
 }
 
 function printHelp() {

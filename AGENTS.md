@@ -18,8 +18,9 @@ Canonical skills live in `skills/<name>/` (Agent Skills standard: `SKILL.md` plu
 `.agents/skills`, and `.opencode/skills` are committed symlinks to `skills/` so agents
 discover skills from a working copy.
 
-Every skill here is documentation — no scripts so far. If one ever ships a script, add a
-`bash -n` syntax check to CI then, not in advance.
+Skills may include executable scripts. CI syntax-checks every `skills/**/*.mjs` file with
+`node --check`; when adding another script type, add its corresponding syntax check as well
+(for example, `bash -n` for shell scripts).
 
 ## The AGENTS.md template
 

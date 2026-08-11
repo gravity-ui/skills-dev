@@ -15,6 +15,7 @@ export function normalize(events) {
   let usage = normalizeUsage();
   let reportedCostUsd = null;
   const trace = [];
+  const toolCalls = new Map();
   const hostErrors = [];
   for (const event of events) {
     if (event.type === 'assistant') {
@@ -22,7 +23,22 @@ export function normalize(events) {
       const text = textFromContent(content);
       if (text) response += `${response ? '\n' : ''}${text}`;
       for (const part of content) {
-        if (part?.type === 'tool_use') trace.push(finalToolEvent(part.name, part.input, null));
+        if (part?.type === 'tool_use') {
+          const toolCall = finalToolEvent(part.name, part.input, null, null, {status: null, exitCode: null});
+          trace.push(toolCall);
+          if (part.id) toolCalls.set(part.id, toolCall);
+        }
+      }
+    }
+    if (event.type === 'user') {
+      const content = event.message?.content ?? [];
+      for (const part of content) {
+        if (part?.type !== 'tool_result') continue;
+        const toolCall = toolCalls.get(part.tool_use_id);
+        if (!toolCall) continue;
+        const output = textFromContent(part.content);
+        toolCall.output = output || part.content || null;
+        toolCall.status = part.is_error ? 'error' : 'completed';
       }
     }
     if (event.type === 'result') {
@@ -40,8 +56,13 @@ export function normalize(events) {
 function claudeUsage(raw) {
   const usage = normalizeUsage(raw);
   // Anthropic reports uncached, cache-read, and cache-creation input as disjoint counters.
-  const input = [usage.input, usage.cachedInput, usage.cacheCreationInput]
-    .filter((value) => value !== null)
-    .reduce((total, value) => total + value, 0);
-  return {...usage, input, total: input + (usage.output ?? 0)};
+  const knownInput = [usage.input, usage.cachedInput, usage.cacheCreationInput]
+    .filter((value) => value !== null);
+  const input = knownInput.length
+    ? knownInput.reduce((total, value) => total + value, 0)
+    : null;
+  const total = input === null && usage.output === null
+    ? null
+    : (input ?? 0) + (usage.output ?? 0);
+  return {...usage, input, total};
 }

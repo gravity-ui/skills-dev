@@ -99,7 +99,10 @@ Every invocation writes a timestamped directory outside the portable eval direct
 - `trace.json` contains normalized tool calls and observed repository paths, not private
   chain-of-thought.
 - `metrics.json` contains usage, cost, timing, failed calls, and parser health for one attempt.
-- `result.json` is the machine-readable aggregate consumed by `compare.mjs`.
+- `result.json` is the machine-readable aggregate consumed by `compare.mjs`; its format is
+  documented by [`artifact.schema.json`](artifact.schema.json) for external validators and
+  integrations. The runner does not validate it at runtime so the portable eval stays
+  dependency-free.
 - `report.md` is the human-readable run summary.
 
 Add `/.eval-artifacts/` to the target repository's root `.gitignore`. Keeping generated history

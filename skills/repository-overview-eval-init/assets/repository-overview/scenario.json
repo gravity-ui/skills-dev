@@ -1,7 +1,7 @@
 {
   "id": "repository-overview",
-  "version": 2,
-  "prompt": "Расскажи про этот репозиторий: какие в нем есть приложения или пакеты, как устроена архитектура, какой используется технологический стек и какие важные инварианты должны соблюдать разработчики. Исследуй репозиторий только на чтение. Не используй сам eval в evals/repository-overview и прошлые артефакты в .eval-artifacts/repository-overview как источники сведений о репозитории. Подкрепляй существенные утверждения относительными путями к файлам. Структурируй ответ разделами «Приложения и пакеты», «Архитектура», «Стек» и «Инварианты».",
+  "version": 4,
+  "prompt": "Explain this repository: what applications or packages it contains, how its architecture is organized, which technology stack it uses, and which important invariants developers must follow. Inspect the repository read-only. Do not use the eval itself in evals/repository-overview or previous artifacts in .eval-artifacts/repository-overview as sources of information about the repository. Support substantive claims with relative file paths. Structure the answer using the sections \"Applications and packages\", \"Architecture\", \"Technology stack\", and \"Invariants\".",
   "assertions": [
     {
       "id": "answer-applications",
@@ -56,6 +56,16 @@
         "^Cargo\\.toml$",
         "^go\\.mod$",
         "^pyproject\\.toml$"
+      ]
+    },
+    {
+      "id": "route-avoids-eval-sources",
+      "group": "route",
+      "type": "trace-path-not-seen",
+      "description": "The agent does not use the eval or previous eval artifacts as repository sources",
+      "patterns": [
+        "^evals/repository-overview/",
+        "^\\.eval-artifacts/"
       ]
     }
   ]

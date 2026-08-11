@@ -2,10 +2,10 @@
 
 import {existsSync, mkdirSync, writeFileSync} from 'node:fs';
 import {basename, dirname, resolve} from 'node:path';
-import {readJson} from './lib/shared.mjs';
+import {format, formatPercent, median, parseArgs, readJson, timestamp} from './lib/shared.mjs';
 
 function main() {
-  const options = parseArgs(process.argv.slice(2));
+  const options = parseArgs(process.argv.slice(2), ['fail-on-regression']);
   if (options.help || !options.baseline || !options.candidate) return printHelp(options.help ? 0 : 1);
   const baselineDir = resolve(options.baseline);
   const candidateDir = resolve(options.candidate);
@@ -17,14 +17,14 @@ function main() {
     qualityScore: scoreDelta(baseline, candidate, 'qualityScore'),
     routeScore: scoreDelta(baseline, candidate, 'routeScore'),
     totalTokens: efficiencyDelta(baseline, candidate, 'totalTokens', threshold),
-    uncachedInputTokens: derivedEfficiencyDelta(baseline, candidate, uncachedInput, threshold),
-    cachedInputTokens: derivedValueDelta(baseline, candidate, (attempt) => attempt.metrics?.usage?.cachedInput),
+    uncachedInputTokens: efficiencyDelta(baseline, candidate, 'uncachedInputTokens', threshold),
+    cachedInputTokens: valueDelta(baseline, candidate, 'cachedInputTokens'),
     reportedCostUsd: efficiencyDelta(baseline, candidate, 'reportedCostUsd', threshold),
     estimatedCostUsd: efficiencyDelta(baseline, candidate, 'estimatedCostUsd', threshold),
     durationMs: efficiencyDelta(baseline, candidate, 'durationMs', threshold),
     toolCalls: efficiencyDelta(baseline, candidate, 'toolCalls', threshold),
-    failedToolCalls: derivedEfficiencyDelta(baseline, candidate, (attempt) => attempt.metrics?.failedToolCalls, threshold),
-    hostErrors: derivedEfficiencyDelta(baseline, candidate, (attempt) => attempt.metrics?.hostErrorCount, threshold),
+    failedToolCalls: efficiencyDelta(baseline, candidate, 'failedToolCalls', threshold),
+    hostErrors: efficiencyDelta(baseline, candidate, 'hostErrors', threshold),
   };
   const metricStatus = classify(dimensions, incompatibilities);
   const navigation = compareNavigation(baseline, candidate);
@@ -45,23 +45,22 @@ function main() {
   };
   const output = options.output
     ? resolve(options.output)
-    : defaultComparisonOutput(candidate, baselineDir, candidateDir);
+    : defaultComparisonOutput(baselineDir, candidateDir);
   const markdownOutput = output.endsWith('.json') ? output.replace(/\.json$/u, '.md') : `${output}.md`;
   createFreshOutput(output, markdownOutput);
   writeFileSync(output, `${JSON.stringify(comparison, null, 2)}\n`);
   writeFileSync(markdownOutput, render(comparison));
   process.stdout.write(`${status}: ${output}\n`);
-  if (options.failOnRegression === 'true' && ['regressed', 'mixed'].includes(status)) process.exitCode = 1;
+  if (options.failOnRegression && ['regressed', 'mixed'].includes(status)) process.exitCode = 1;
 }
 
-function defaultComparisonOutput(candidate, baselineDir, candidateDir) {
-  const repo = resolve(candidate.environment?.repo ?? process.cwd());
+function defaultComparisonOutput(baselineDir, candidateDir) {
+  const runsDir = dirname(candidateDir);
+  const artifactRoot = basename(runsDir) === 'runs'
+    ? dirname(runsDir)
+    : resolve(process.cwd(), '.eval-artifacts', 'repository-overview');
   const comparisonId = `${timestamp()}-${basename(baselineDir)}-vs-${basename(candidateDir)}`;
-  return resolve(repo, '.eval-artifacts', 'repository-overview', 'comparisons', comparisonId, 'comparison.json');
-}
-
-function timestamp() {
-  return new Date().toISOString().replaceAll(':', '-');
+  return resolve(artifactRoot, 'comparisons', comparisonId, 'comparison.json');
 }
 
 function createFreshOutput(output, markdownOutput) {
@@ -123,13 +122,9 @@ function efficiencyDelta(left, right, name, threshold) {
   return compareEfficiency(a, b, threshold);
 }
 
-function derivedEfficiencyDelta(left, right, getter, threshold) {
-  return compareEfficiency(medianAttempt(left, getter), medianAttempt(right, getter), threshold);
-}
-
-function derivedValueDelta(left, right, getter) {
-  const a = medianAttempt(left, getter);
-  const b = medianAttempt(right, getter);
+function valueDelta(left, right, name) {
+  const a = left.aggregate?.[name]?.median ?? null;
+  const b = right.aggregate?.[name]?.median ?? null;
   if (a === null || b === null || a === 0) return {baseline: a, candidate: b, relative: null, signal: 'informational'};
   return {baseline: a, candidate: b, relative: (b - a) / a, signal: 'informational'};
 }
@@ -140,16 +135,6 @@ function compareEfficiency(a, b, threshold) {
   const relative = (b - a) / a;
   const signal = relative <= -threshold ? 'better' : relative >= threshold ? 'worse' : 'same';
   return {baseline: a, candidate: b, relative, signal};
-}
-
-function medianAttempt(result, getter) {
-  return median((result.attempts ?? []).map(getter));
-}
-
-function uncachedInput(attempt) {
-  const input = attempt.metrics?.usage?.input;
-  if (typeof input !== 'number') return null;
-  return Math.max(0, input - (attempt.metrics?.usage?.cachedInput ?? 0));
 }
 
 function classify(dimensions, incompatibilities) {
@@ -354,29 +339,6 @@ function priorityRank(priority) {
   return ({high: 0, medium: 1, low: 2})[priority] ?? 3;
 }
 
-function median(values) {
-  const known = values.filter((value) => typeof value === 'number' && Number.isFinite(value)).sort((a, b) => a - b);
-  if (!known.length) return null;
-  const middle = Math.floor(known.length / 2);
-  return known.length % 2 ? known[middle] : (known[middle - 1] + known[middle]) / 2;
-}
-
-function parseArgs(args) {
-  const out = {};
-  for (let index = 0; index < args.length; index++) {
-    const arg = args[index];
-    if (arg === '--help' || arg === '-h') out.help = true;
-    else if (arg === '--fail-on-regression') out.failOnRegression = 'true';
-    else if (arg.startsWith('--')) {
-      const key = arg.slice(2).replace(/-([a-z])/g, (_, char) => char.toUpperCase());
-      const value = args[++index];
-      if (value === undefined || value.startsWith('--')) throw new Error(`${arg} requires a value`);
-      out[key] = value;
-    } else throw new Error(`Unexpected argument: ${arg}`);
-  }
-  return out;
-}
-
 function percentage(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) throw new Error('--threshold must be a non-negative percentage');
@@ -429,14 +391,6 @@ function pathList(paths) {
 function sequences(items) {
   if (!items.length) return '_No paths detected._';
   return items.map((paths, index) => `${index + 1}. ${pathList(paths)}`).join('\n');
-}
-
-function format(value) {
-  return value === null ? 'n/a' : Number.isInteger(value) ? String(value) : value.toFixed(4);
-}
-
-function formatPercent(value) {
-  return value === null ? 'n/a' : `${(value * 100).toFixed(1)}%`;
 }
 
 function printHelp(code) {
