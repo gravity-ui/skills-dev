@@ -2,7 +2,10 @@
 
 import {existsSync, mkdirSync, writeFileSync} from 'node:fs';
 import {basename, dirname, resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {format, formatPercent, median, parseArgs, readJson, timestamp} from './lib/shared.mjs';
+
+const evalRoot = dirname(fileURLToPath(import.meta.url));
 
 function main() {
   const options = parseArgs(process.argv.slice(2), ['fail-on-regression']);
@@ -58,7 +61,7 @@ function defaultComparisonOutput(baselineDir, candidateDir) {
   const runsDir = dirname(candidateDir);
   const artifactRoot = basename(runsDir) === 'runs'
     ? dirname(runsDir)
-    : resolve(process.cwd(), '.eval-artifacts', 'repository-overview');
+    : resolve(evalRoot, '.eval-artifacts');
   const comparisonId = `${timestamp()}-${basename(baselineDir)}-vs-${basename(candidateDir)}`;
   return resolve(artifactRoot, 'comparisons', comparisonId, 'comparison.json');
 }

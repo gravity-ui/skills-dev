@@ -1,7 +1,7 @@
 {
   "id": "repository-overview",
-  "version": 4,
-  "prompt": "Explain this repository: what applications or packages it contains, how its architecture is organized, which technology stack it uses, and which important invariants developers must follow. Inspect the repository read-only. Do not use the eval itself in evals/repository-overview or previous artifacts in .eval-artifacts/repository-overview as sources of information about the repository. Support substantive claims with relative file paths. Structure the answer using the sections \"Applications and packages\", \"Architecture\", \"Technology stack\", and \"Invariants\".",
+  "version": 5,
+  "prompt": "Explain this repository: what applications or packages it contains, how its architecture is organized, which technology stack it uses, and which important invariants developers must follow. Inspect the repository read-only. Do not use the eval itself or previous artifacts in .agents/evals/repository-overview as sources of information about the repository. Support substantive claims with relative file paths. Structure the answer using the sections \"Applications and packages\", \"Architecture\", \"Technology stack\", and \"Invariants\".",
   "assertions": [
     {
       "id": "answer-applications",
@@ -64,8 +64,7 @@
       "type": "trace-path-not-seen",
       "description": "The agent does not use the eval or previous eval artifacts as repository sources",
       "patterns": [
-        "^evals/repository-overview/",
-        "^\\.eval-artifacts/"
+        "^\\.agents/evals/repository-overview/"
       ]
     }
   ]

@@ -26,17 +26,20 @@ The eval has no npm dependencies and does not need `npm install`.
 
 ## Copy to another repository
 
-1. Copy `evals/repository-overview` into the target repository.
-2. Add `/.eval-artifacts/` to the target repository's root `.gitignore`.
+1. Copy this directory to `.agents/evals/repository-overview` in the target repository, creating
+   `.agents/evals` when needed.
+2. Add `/.agents/evals/repository-overview/.eval-artifacts/` to the target repository's root
+   `.gitignore`.
 
-Runs and comparisons are written to `.eval-artifacts/repository-overview/`, not into the copied
-eval directory. Updating or copying the eval therefore never carries previous results with it.
+Runs and comparisons are written to the nested
+`.agents/evals/repository-overview/.eval-artifacts/` directory, keeping the complete harness under
+`.agents` while leaving generated results uncommitted.
 
 ## Quick start for an agent
 
 From the target repository root, tell the agent:
 
-> Run `evals/repository-overview/EVAL.md` for this repository.
+> Run `.agents/evals/repository-overview/EVAL.md` for this repository.
 
 The agent should choose its current host and report the artifact directory printed by the runner.
 
@@ -45,7 +48,7 @@ The agent should choose its current host and report the artifact directory print
 Smoke test with one attempt:
 
 ```bash
-node evals/repository-overview/run.mjs \
+node .agents/evals/repository-overview/run.mjs \
   --host codex \
   --repo . \
   --model <model-id> \
@@ -58,7 +61,7 @@ values are passed through to the selected host.
 Benchmark with three attempts:
 
 ```bash
-node evals/repository-overview/run.mjs \
+node .agents/evals/repository-overview/run.mjs \
   --host codex \
   --repo . \
   --model <model-id> \
@@ -69,15 +72,15 @@ node evals/repository-overview/run.mjs \
 Keep host, model, effort, CLI version, runner version, and scenario identical between baseline and
 candidate. Otherwise the comparison is descriptive but classified as `inconclusive`.
 
-Run `node evals/repository-overview/run.mjs --help` for all options. Each attempt has a ten-minute
-timeout by default.
+Run `node .agents/evals/repository-overview/run.mjs --help` for all options. Each attempt has a
+ten-minute timeout by default.
 
 ## Artifacts
 
-Every invocation writes a timestamped directory outside the portable eval directory:
+Every invocation writes a timestamped directory inside the portable eval directory:
 
 ```text
-.eval-artifacts/repository-overview/
+.agents/evals/repository-overview/.eval-artifacts/
 ├── runs/
 │   └── <timestamp>-<host>/
 │       ├── result.json
@@ -105,21 +108,22 @@ Every invocation writes a timestamped directory outside the portable eval direct
   dependency-free.
 - `report.md` is the human-readable run summary.
 
-Add `/.eval-artifacts/` to the target repository's root `.gitignore`. Keeping generated history
-outside `evals/repository-overview` means copying or updating the eval never copies old results.
+Add `/.agents/evals/repository-overview/.eval-artifacts/` to the target repository's root
+`.gitignore`. This keeps generated history beside the eval without committing it.
 
 ## Compare baseline and candidate
 
 After changing `AGENTS.md`, `CLAUDE.md`, skills, or another harness surface, rerun the same benchmark:
 
 ```bash
-node evals/repository-overview/compare.mjs \
-  --baseline .eval-artifacts/repository-overview/runs/<baseline> \
-  --candidate .eval-artifacts/repository-overview/runs/<candidate>
+node .agents/evals/repository-overview/compare.mjs \
+  --baseline .agents/evals/repository-overview/.eval-artifacts/runs/<baseline> \
+  --candidate .agents/evals/repository-overview/.eval-artifacts/runs/<candidate>
 ```
 
-Each invocation creates a new directory under `.eval-artifacts/repository-overview/comparisons/`,
-so comparing the same runs again preserves both reports. Each report includes:
+Each invocation creates a new directory under
+`.agents/evals/repository-overview/.eval-artifacts/comparisons/`, so comparing the same runs again
+preserves both reports. Each report includes:
 
 - `improved`, `regressed`, `mixed`, or `inconclusive` status;
 - metric deltas using a 5% materiality threshold by default;
