@@ -15,14 +15,14 @@ usage is attributable to the scenario rather than to the conversation that launc
 3. Run one smoke attempt:
 
    ```bash
-   node evals/repository-overview/run.mjs --host <host> --repo . \
+   node .agents/evals/repository-overview/run.mjs --host <host> --repo . \
      [--model <model>] [--effort <effort>]
    ```
 
 4. For a benchmark, use three attempts:
 
    ```bash
-   node evals/repository-overview/run.mjs --host <host> --repo . \
+   node .agents/evals/repository-overview/run.mjs --host <host> --repo . \
      --model <model> --effort <effort> --repeat 3
    ```
 
@@ -41,9 +41,9 @@ After changing `AGENTS.md`, `CLAUDE.md`, skills, or another harness surface, run
 again with the same host, model, effort, and scenario. Then compare the two artifact directories:
 
 ```bash
-node evals/repository-overview/compare.mjs \
-  --baseline .eval-artifacts/repository-overview/runs/<baseline> \
-  --candidate .eval-artifacts/repository-overview/runs/<candidate>
+node .agents/evals/repository-overview/compare.mjs \
+  --baseline .agents/evals/repository-overview/.eval-artifacts/runs/<baseline> \
+  --candidate .agents/evals/repository-overview/.eval-artifacts/runs/<candidate>
 ```
 
 The comparison reports answer and navigation scores, tokens, cost, duration, tool calls, and the
@@ -54,10 +54,11 @@ as `inconclusive` because the change cannot be attributed to the harness alone.
 
 ## Copy it to another repository
 
-Copy the entire `evals/repository-overview` directory and add `/.eval-artifacts/` to the target
-repository's root `.gitignore`. The eval has no package dependencies and requires only Node.js 20
-or newer plus the CLI being evaluated. Generated history stays outside the copied directory under
-`.eval-artifacts/repository-overview/`, while the eval definition and scripts can be committed.
+Copy the entire eval directory to `.agents/evals/repository-overview` and add
+`/.agents/evals/repository-overview/.eval-artifacts/` to the target repository's root `.gitignore`.
+The eval has no package dependencies and requires only Node.js 20 or newer plus the CLI being
+evaluated. Generated history stays inside the ignored `.eval-artifacts/` subdirectory, while the
+eval definition and scripts can be committed.
 
 To estimate dollar cost when a host does not report it, add the explicitly chosen model rates to
 `prices.json`. Never fetch current prices during a run: a versioned local rate makes old and new

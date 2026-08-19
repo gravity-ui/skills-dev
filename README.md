@@ -52,10 +52,10 @@ From the target repository, ask the agent:
 > Initialize the repository overview eval in this repository.
 
 The skill copies its [bundled eval](skills/repository-overview-eval-init/assets/repository-overview/README.md)
-to `evals/repository-overview`, adds the artifact ignore rule, and validates the installed entry
-point without starting a benchmark. Then tell the agent:
+to `.agents/evals/repository-overview`, adds the nested artifact ignore rule, and validates the
+installed entry point without starting a benchmark. Then tell the agent:
 
-> Run `evals/repository-overview/EVAL.md` for this repository.
+> Run `.agents/evals/repository-overview/EVAL.md` for this repository.
 
 The eval starts a fresh session in the host's planning/read-only mode through Codex CLI, Claude Code,
 or OpenCode and saves the answer, raw host events, normalized tool/path trace, tokens, reported or
@@ -65,15 +65,15 @@ requires Node.js 20 or newer.
 Run the same eval after changing the repository harness and compare the artifact directories:
 
 ```bash
-node evals/repository-overview/compare.mjs \
-  --baseline .eval-artifacts/repository-overview/runs/<baseline> \
-  --candidate .eval-artifacts/repository-overview/runs/<candidate>
+node .agents/evals/repository-overview/compare.mjs \
+  --baseline .agents/evals/repository-overview/.eval-artifacts/runs/<baseline> \
+  --candidate .agents/evals/repository-overview/.eval-artifacts/runs/<candidate>
 ```
 
 The comparison includes a confidence-rated verdict and prioritized, evidence-backed suggestions for
 improving harness navigation, assertions, cache control, and benchmark setup.
-Runs and comparisons are kept under the ignored `.eval-artifacts/` directory, outside the portable
-eval directory, so copying the eval never copies prior results.
+Runs and comparisons are kept under the ignored
+`.agents/evals/repository-overview/.eval-artifacts/` directory, beside the eval's versioned files.
 
 Use the same host, model, effort, scenario, CLI version, and eval runner version on both sides.
 Cross-environment results are still reported, but deliberately classified as inconclusive.

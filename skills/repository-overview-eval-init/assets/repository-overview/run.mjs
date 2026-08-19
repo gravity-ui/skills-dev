@@ -23,7 +23,7 @@ import {
 
 const evalRoot = dirname(fileURLToPath(import.meta.url));
 const adapters = {codex, claude, opencode};
-const runnerVersion = 3;
+const runnerVersion = 4;
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
@@ -38,7 +38,7 @@ async function main() {
   const timeoutMs = positiveInteger(options.timeoutMs ?? 600_000, '--timeout-ms');
   const prices = readJson(resolve(options.prices ?? resolve(evalRoot, 'prices.json')));
   const runId = `${timestamp()}-${host}`;
-  const artifactRoot = resolve(repo, '.eval-artifacts', 'repository-overview');
+  const artifactRoot = resolve(evalRoot, '.eval-artifacts');
   const outputDir = resolve(options.output ?? resolve(artifactRoot, 'runs', runId));
   const excludedRoots = [artifactRoot];
   if (evalRoot.startsWith(`${repo}${sep}`)) excludedRoots.push(evalRoot);
