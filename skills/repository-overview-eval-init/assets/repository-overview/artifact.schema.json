@@ -1,45 +1,393 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://gravity-ui.com/schemas/repository-overview-eval-result.json",
-  "title": "Repository overview eval result",
+  "title": "Repository overview raw result or sanitized run summary",
   "type": "object",
-  "required": ["schemaVersion", "eval", "environment", "repeat", "attempts", "aggregate", "createdAt"],
+  "required": [
+    "schemaVersion",
+    "runId",
+    "eval",
+    "environment",
+    "repeat",
+    "mutationDetected",
+    "attempts",
+    "aggregate",
+    "createdAt",
+    "manualReview"
+  ],
   "properties": {
-    "schemaVersion": {"const": 1},
+    "schemaVersion": {
+      "const": 2
+    },
+    "runId": {
+      "type": "string"
+    },
+    "kind": {
+      "const": "run-summary"
+    },
     "eval": {
       "type": "object",
-      "required": ["id", "version", "prompt"],
+      "required": [
+        "id",
+        "version",
+        "digest"
+      ],
       "properties": {
-        "id": {"type": "string"},
-        "version": {"type": "integer"},
-        "prompt": {"type": "string"}
+        "id": {
+          "type": "string"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "scenario": {
+          "type": "object"
+        }
       }
     },
     "environment": {
       "type": "object",
-      "required": ["host", "model", "cliVersion", "runnerVersion", "nodeVersion", "repo", "git"],
+      "required": [
+        "host",
+        "model",
+        "effort",
+        "cliVersion",
+        "runnerVersion",
+        "adapterVersion",
+        "adapterContract",
+        "git"
+      ],
       "properties": {
-        "host": {"enum": ["codex", "claude", "opencode"]},
-        "model": {"type": "string"},
-        "effort": {"type": ["string", "null"]},
-        "cliVersion": {"type": ["string", "null"]},
-        "runnerVersion": {"type": "integer", "minimum": 1},
-        "nodeVersion": {"type": "string"},
-        "repo": {"type": "string"},
-        "git": {"type": "object"}
+        "host": {
+          "enum": [
+            "codex",
+            "claude",
+            "opencode"
+          ]
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effort": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "cliVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runnerVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "adapterVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "adapterContract": {
+          "type": "object",
+          "required": [
+            "requested",
+            "effective",
+            "verification"
+          ],
+          "properties": {
+            "requested": {
+              "type": "object"
+            },
+            "effective": {
+              "type": "object"
+            },
+            "verification": {
+              "type": "string"
+            }
+          }
+        },
+        "git": {
+          "type": "object",
+          "required": [
+            "commit",
+            "status",
+            "indexDigest"
+          ],
+          "properties": {
+            "commit": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "indexDigest": {
+              "type": "string"
+            }
+          }
+        }
       }
     },
-    "repeat": {"type": "integer", "minimum": 1},
-    "mutationDetected": {"type": "boolean"},
+    "repeat": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "mutationDetected": {
+      "type": "boolean"
+    },
     "attempts": {
       "type": "array",
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": ["index", "success", "metrics", "scores", "assertions"]
+        "required": [
+          "index",
+          "success",
+          "degraded",
+          "mutationDetected",
+          "metrics",
+          "scores",
+          "assertions",
+          "pathSequence"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "success": {
+            "type": "boolean"
+          },
+          "degraded": {
+            "type": "boolean"
+          },
+          "mutationDetected": {
+            "type": "boolean"
+          },
+          "metrics": {
+            "type": "object",
+            "required": [
+              "usage",
+              "cost",
+              "durationMs",
+              "toolCalls",
+              "failedToolCalls",
+              "hostErrorCount",
+              "hostWarningCount",
+              "parserWarningCount",
+              "malformedJsonLines",
+              "webSearchCalls",
+              "externalToolCalls",
+              "uniquePaths"
+            ],
+            "properties": {
+              "usage": {
+                "type": "object",
+                "required": [
+                  "input",
+                  "cachedInput",
+                  "cacheCreationInput",
+                  "output",
+                  "reasoning",
+                  "total"
+                ],
+                "properties": {
+                  "input": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "cachedInput": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "cacheCreationInput": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "output": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "reasoning": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  },
+                  "total": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  }
+                }
+              },
+              "cost": {
+                "type": "object",
+                "required": [
+                  "reportedUsd"
+                ],
+                "properties": {
+                  "reportedUsd": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "minimum": 0
+                  }
+                }
+              },
+              "durationMs": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "toolCalls": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "failedToolCalls": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "hostErrorCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "hostWarningCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "parserWarningCount": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "malformedJsonLines": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "webSearchCalls": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "externalToolCalls": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "uniquePaths": {
+                "type": "integer",
+                "minimum": 0
+              }
+            }
+          },
+          "scores": {
+            "type": "object",
+            "required": [
+              "structural",
+              "quality",
+              "route"
+            ],
+            "properties": {
+              "structural": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "quality": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "route": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              }
+            }
+          },
+          "assertions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "group",
+                "passed",
+                "skipped"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "group": {
+                  "enum": [
+                    "structural",
+                    "quality",
+                    "route"
+                  ]
+                },
+                "passed": {
+                  "type": "boolean"
+                },
+                "skipped": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "pathSequence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       }
     },
-    "aggregate": {"type": "object"},
-    "createdAt": {"type": "string", "format": "date-time"}
+    "aggregate": {
+      "type": "object"
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "manualReview": {
+      "type": "object",
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "enum": [
+            "not-performed",
+            "passed",
+            "failed"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    }
   }
 }

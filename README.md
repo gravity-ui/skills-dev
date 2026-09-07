@@ -38,7 +38,7 @@ be?"
 |-------|--------------|------------------|
 | [gravity-ui-pr-create](skills/gravity-ui-pr-create/SKILL.md) | Opening a pull request in `gravity-ui/*`: the Conventional Commits title that becomes the released commit, what to write in the description, the `gh pr create` invocation | "Open a PR for this change", "What should the PR title be?" |
 | [github-cli-setup](skills/github-cli-setup/SKILL.md) | Checks that `gh` is installed, logged in, and carries the right token scopes, and fixes each failure. Used before any GitHub work — pull requests, issues, checks, releases | "gh: command not found", "gh isn't logged in", "настрой gh" |
-| [repository-overview-eval-init](skills/repository-overview-eval-init/SKILL.md) | Installs the portable repository-overview benchmark into a Gravity UI repository without overwriting local eval configuration | "Initialize the repository overview eval", "Добавь эвал обзора репозитория" |
+| [repository-overview-eval-init](skills/repository-overview-eval-init/SKILL.md) | Installs and updates the portable benchmark, preserving repository scenarios and committed report history | "Initialize the repository overview eval", "Добавь эвал обзора репозитория" |
 
 Skills activate automatically from context. The full command list for each skill is in its
 `SKILL.md`.
@@ -55,27 +55,36 @@ The skill copies its [bundled eval](skills/repository-overview-eval-init/assets/
 to `.agents/evals/repository-overview`, adds the nested artifact ignore rule, and validates the
 installed entry point without starting a benchmark. Then tell the agent:
 
-> Run `.agents/evals/repository-overview/EVAL.md` for this repository.
+> Run the experiment described in the “Conduct an experiment” section of
+> `.agents/evals/repository-overview/README.md` for this repository.
 
 The eval starts a fresh session in the host's planning/read-only mode through Codex CLI, Claude Code,
-or OpenCode and saves the answer, raw host events, normalized tool/path trace, tokens, reported or
-explicitly estimated cost, and deterministic quality checks. It has no package dependencies and
+or OpenCode and saves the answer, raw host events, normalized tool/path trace, tokens, host-reported
+cost when available, and deterministic quality checks. It has no package dependencies and
 requires Node.js 20 or newer.
 
-Run the same eval after changing the repository harness and compare the artifact directories:
+Add versioned scenarios under `scenarios/repository/`, then run matching baseline/candidate experiments
+and compare the retained summaries:
 
 ```bash
 node .agents/evals/repository-overview/compare.mjs \
-  --baseline .agents/evals/repository-overview/.eval-artifacts/runs/<baseline> \
-  --candidate .agents/evals/repository-overview/.eval-artifacts/runs/<candidate>
+  --baseline .agents/evals/repository-overview/reports/runs/<baseline>.json \
+  --candidate .agents/evals/repository-overview/reports/runs/<candidate>.json
 ```
 
 The comparison includes a confidence-rated verdict and prioritized, evidence-backed suggestions for
 improving harness navigation, assertions, cache control, and benchmark setup.
-Runs and comparisons are kept under the ignored
-`.agents/evals/repository-overview/.eval-artifacts/` directory, beside the eval's versioned files.
+JSON and Markdown run/comparison summaries are saved under the **non-ignored `reports/`** directory
+and can be committed for long-term comparisons without keeping raw logs. Only `.eval-artifacts/`
+is ignored. The installer verifies those rules, records upstream checksums, and supports updates
+without overwriting repository-owned scenarios or reports. See the bundled README for the assertion
+catalog, overview/focused-task templates, migration, and update workflow.
 
-Use the same host, model, effort, scenario, CLI version, and eval runner version on both sides.
+Run `npm test` here for deterministic adapter, comparison, CLI and installer fixtures. To update the
+bundle after editing its files, run `node skills/repository-overview-eval-init/scripts/manifest.mjs`;
+CI verifies the resulting checksums. No live model runs happen in CI.
+
+Use the same scenario digest, host, model, effort, CLI, runner and adapter contract on both sides.
 Cross-environment results are still reported, but deliberately classified as inconclusive.
 
 ## `AGENTS.md` for a Gravity UI repository

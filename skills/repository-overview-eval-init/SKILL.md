@@ -1,62 +1,62 @@
 ---
 name: repository-overview-eval-init
-description: Use when initializing or installing the portable repository-overview eval in a Gravity UI repository. Copies the bundled benchmark into .agents/evals/repository-overview and configures its nested artifact ignore rule. Triggers on "init repository overview eval", "install the repository-overview benchmark", "copy the eval into this repo", "инициализируй repository-overview eval", "добавь эвал обзора репозитория", "скопируй эвал в новый репозиторий".
+description: Use when installing, updating, or migrating the portable repository-overview eval in a Gravity UI repository, or adding custom scenarios and retained reports. Triggers on "init repository overview eval", "update the repository-overview benchmark", "add an eval scenario", "инициализируй эвал", "обнови repository-overview", "добавь сценарий эвала". Preserves repository-owned scenarios and report history.
 ---
 
-# Initializing the repository overview eval
+# Repository overview eval installation and updates
 
-The eval is bundled with this skill so a repository gets a complete, versioned copy without
-depending on the plugin installation path at runtime. Initialization is intentionally one-way:
-never overwrite an existing eval, because repositories may add local assertions to `scenario.json`.
+The bundled eval is dependency-free (Node.js 20+) and independent of the plugin path after
+installation. Use the deterministic installer; do not recursively overwrite an existing copy.
 
-## Preflight
+## Install or update
 
-1. Resolve the repository root with `git rev-parse --show-toplevel`. Stop if the working directory
-   is not inside a Git repository.
-2. Confirm that an `origin` or `upstream` remote belongs to `github.com/gravity-ui/*`. Personal
-   forks are in scope when their `upstream` remote points to Gravity UI. If neither remote does,
-   explain that this skill is limited to repositories developed under Gravity UI and make no
-   changes.
-3. Resolve `assets/repository-overview` relative to this `SKILL.md`; do not hardcode the plugin's
-   installation path.
-4. Check `<repo-root>/.agents/evals/repository-overview`. If any file, directory, or symlink already
-   exists there, stop without changing it and report that initialization was skipped. Do not merge,
-   delete, or update an existing installation.
-5. Check the legacy path `<repo-root>/evals/repository-overview`. If any file, directory, or symlink
-   exists there, stop before creating `.agents`, explain that automatic migration could overwrite
-   repository-specific assertions, and ask the user to migrate it as a separate task.
+1. Resolve `scripts/install.mjs` relative to this skill. Run:
 
-## Initialize
-
-1. Create `<repo-root>/.agents/evals/` if needed, including `.agents`, then recursively copy the
-   bundled `assets/repository-overview` directory to
-   `<repo-root>/.agents/evals/repository-overview`. Preserve file contents and relative paths; do
-   not copy `SKILL.md` or any previous `.eval-artifacts`.
-2. Inspect the repository-root `.gitignore`. If a repository-owned rule already ignores
-   `.agents/evals/repository-overview/.eval-artifacts`, leave it unchanged. Otherwise add this exact
-   entry, preserving the file's existing content and newline style:
-
-   ```gitignore
-   /.agents/evals/repository-overview/.eval-artifacts/
+   ```bash
+   node <skill-dir>/scripts/install.mjs --repo <repository-root> --dry-run
+   node <skill-dir>/scripts/install.mjs --repo <repository-root>
    ```
 
-3. Run `node .agents/evals/repository-overview/run.mjs --help` from the repository root. This
-   validates the installed entry point without starting an agent session or creating benchmark
-   artifacts.
-4. Show `git status --short` and report the installed path, the `.gitignore` outcome, and whether
-   the validation succeeded. Do not run the eval itself unless the user separately asks for it.
+   For an existing installation, use `--update` on both commands. The installer checks the Git
+   root and Gravity UI origin/upstream remote, refuses symlinks, and checks all conflicts before
+   writing. An old `evals/repository-overview` directory requires separate migration.
+2. If a managed file conflicts, inspect the local and bundled versions and preserve the local
+   intent when reconciling. Do not force-copy the directory or remove repository scenarios.
+   `upstream.json` records the source release and managed file hashes. Unknown files, reports,
+   and custom scenarios are never silently overwritten.
+3. Run these checks from the repository root:
 
-If Node.js is missing or older than version 20, keep the copied files, explain the requirement, and
-report validation as pending rather than attempting to install or upgrade Node.
+   ```bash
+   node .agents/evals/repository-overview/run.mjs --help
+   node --test .agents/evals/repository-overview/tests/*.test.mjs
+   git status --short
+   ```
 
-## After initialization
+4. Report the installed version, changed files, scenario migration, ignore-rule checks and test
+   outcome. The installer keeps `.eval-artifacts/` ignored and verifies that core files, custom
+   scenarios, and `reports/` remain visible to Git, including under broad `.agents/` ignore rules.
+   Treat a failed visibility check as unfinished integration and show the offending rule.
 
-The user can ask an agent to run `.agents/evals/repository-overview/EVAL.md`, or invoke the runner
-directly:
+Installation/update alone does not authorize live model runs. If Node.js is unavailable or older
+than 20, report the prerequisite; do not install it automatically.
 
-```bash
-node .agents/evals/repository-overview/run.mjs --host <codex|claude|opencode> --repo .
-```
+## Repository scenarios and evidence
 
-Repository-specific assertions are deliberately not generated during initialization. The generic
-`scenario.json` is the reproducible starting point; customize it later as a separate task.
+Read [README.md](assets/repository-overview/README.md) for the complete scenario contract, assertion
+catalog, examples, interpretation limits, and update ownership rules. Follow its
+[Conduct an experiment](assets/repository-overview/README.md#conduct-an-experiment) section when
+running an authorized experiment.
+
+- Keep `scenarios/default.json` upstream-owned. Add files under `scenarios/repository/` and commit
+  them. Start from `examples/overview.json` and `examples/focused-task.json`, replacing all
+  placeholders with repository facts and source paths. Do not claim factual quality from headings.
+- Updates from the old layout preserve `scenario.json` and create a schema-compatible
+  `scenarios/repository/legacy.json` with an incremented version. Use the migrated file explicitly.
+- Link the eval from contributor/navigation documentation and expose native test/run aliases if
+  the repository uses a task runner. Include vendored files in the repository's lint/format checks;
+  do not ignore `.agents/` wholesale. CI runs fixtures only, never live benchmarks.
+- Keep JSON and Markdown in `reports/` committed with benchmark claims. They remain usable for
+  comparison after raw logs are removed. Review the small reports before committing; the runner
+  never commits or publishes automatically.
+- Collect a new baseline after changing a scenario or measurement contract. Report overview and
+  focused-task results separately before making a net-win claim.

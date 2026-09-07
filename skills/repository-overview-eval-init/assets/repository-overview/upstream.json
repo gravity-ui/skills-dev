@@ -1,0 +1,32 @@
+{
+  "repository": "gravity-ui/skills-dev",
+  "version": "1.2.0",
+  "files": {
+    "artifact.schema.json": "fdc4930bb9b4a59783317da441c484aa1b8bf90ab6031491270a93b95f6a6543",
+    "compare.mjs": "7bba4b2d280749b970a985dbc0835e780be0d55d0c3b05330f08a0a5d5f22620",
+    "examples/focused-task.json": "b746e514377212a921b7d05d9a5f5401b235981b15aae143f30b464ef47f45d3",
+    "examples/overview.json": "5b587a0c254e25182ea00a6997ad14a7922923a4d01ab0daa40ff82322b52b50",
+    "fixtures/claude.jsonl": "c5f6f3b6011249377114326a38f08d0e28c215cade6fe047eef305d9455b044b",
+    "fixtures/codex.jsonl": "089aaaaac9fdd6f32174403ca0a7ed13ad65e5dedd25b96d6621efff65af6403",
+    "fixtures/expected-normalized.json": "2722ccda9e8c3a6a2c755f8ffc4e0d05476d7b50037614298aa5a3b4034f504c",
+    "fixtures/host.mjs": "56d2392f4e8ca993aa561cee91ffeafd3ecc26d164e0a2628379d935d0b4a2a5",
+    "fixtures/malformed.jsonl": "a4b48173977c67a92903f51d055baae19d0e3b1c964be2b360d7c5dbb5db3e33",
+    "fixtures/opencode.jsonl": "fe9311497e602169029fcddf92a3806b7659b8cd30e8602d66ae64a23506f282",
+    "lib/claude.mjs": "76f07e30ec42a8a83431800fe83a1d34dd10c245d9d35f0b080e7c1f9854b0b4",
+    "lib/codex-policy.mjs": "6785178bbbcf34b18ba0d4b4903d2369425072e5e16ee84ae4f2d776c9e2a197",
+    "lib/codex.mjs": "373c40a34f8d85400a643eab4cb830894bd463e01dbc8d6a115719e2fab36a29",
+    "lib/contracts.mjs": "c05fb579987dd7cd76d841284eb05ebd2250933bdcaa80bb5b1bb070599b48c3",
+    "lib/events.mjs": "a613059fdc38c80df45dea2c416a05049eee7707a75910bb569fe6558ff4c015",
+    "lib/opencode.mjs": "fe2a6d60fe8a1fd1304fdf13512884327e65fc60c1ce4c9bf8afe04a1a309ea0",
+    "lib/reports.mjs": "9f3aa5d68e5584d51af600ee0be4e30bd4c029cab0eaea333fb0b7034c565ce6",
+    "lib/repository.mjs": "7a6ed360917fb433678c1c7a374a1e141ae8582dc7fbe52f6a040554bf6f7283",
+    "lib/results.mjs": "4fa61f72328cf99fe1ba4f782ed299799adddd9a0d1ee99e10debf51e80f03b0",
+    "lib/shared.mjs": "e0d788fa1b4af19fe4cb69f97eddcd6ae645c73adcfc612290b5a0ddca9dea8f",
+    "README.md": "ab1bc645c88313e31aa368e3e173c46d0510c9048ad5c72a111282536115cab6",
+    "run.mjs": "aadbe08d6651baf6cbf866fe2eca7c56e8483390554485224674de60a5b319ef",
+    "scenario.schema.json": "687c3f86fd8997358acb565eafdec4f18f261c63b1def3e3f8f0b16967b6fc05",
+    "scenarios/default.json": "2a7a78dd4ab31f3c231aa4a4bb78e48b421e0a593bfa804d5c5d6fcd8b476b76",
+    "tests/core.test.mjs": "ad59bfb60e3d4494e774236027db1922379db08dd239250e54c29e14db2f276f",
+    "tests/integration.test.mjs": "26e5016238c7e530a76a8dd4083d22a6ac338c21dda0674e5172a190e87a0787"
+  }
+}

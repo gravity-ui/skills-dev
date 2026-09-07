@@ -1,0 +1,59 @@
+{
+  "id": "custom-focused-task",
+  "version": 1,
+  "prompt": "Read-only investigation: locate where a bug in YOUR_COMPONENT would be fixed, the authoritative behavior specification, and the exact regression tests to update. Explain the likely change without editing files. Cite repository sources; do not use the eval or previous reports.",
+  "assertions": [
+    {
+      "id": "fact",
+      "group": "quality",
+      "type": "answer-fact-with-source",
+      "pattern": "YOUR_EXPECTED_FACT",
+      "patterns": [
+        "^YOUR_SOURCE_PATH$"
+      ]
+    },
+    {
+      "id": "docs-first",
+      "group": "route",
+      "type": "trace-paths-before",
+      "patterns": [
+        "^YOUR_NAVIGATION_PATH$",
+        "^YOUR_ARCHITECTURE_PATH$"
+      ],
+      "before": [
+        "^YOUR_IMPLEMENTATION_PREFIX/"
+      ]
+    },
+    {
+      "id": "tool-budget",
+      "group": "route",
+      "type": "max-tool-calls",
+      "maximum": 15
+    },
+    {
+      "id": "unique-path-budget",
+      "group": "route",
+      "type": "max-unique-paths",
+      "maximum": 20
+    },
+    {
+      "id": "revisit-budget",
+      "group": "route",
+      "type": "max-path-revisits",
+      "maximum": 5
+    },
+    {
+      "id": "no-web",
+      "group": "route",
+      "type": "no-web-search"
+    },
+    {
+      "id": "avoid-eval",
+      "group": "route",
+      "type": "trace-path-not-seen",
+      "patterns": [
+        "^\\.agents/evals/repository-overview/"
+      ]
+    }
+  ]
+}
