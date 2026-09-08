@@ -21,11 +21,11 @@ jobs:
       - name: Check skill script syntax
         run: find skills -type f -name '*.mjs' -print0 | xargs -0 -r -n 1 node --check
 
-      - name: Test portable eval and installer (offline)
-        run: npm test
-
       - name: Verify portable bundle checksums
         run: node skills/repository-overview-eval-init/scripts/manifest.mjs --check
+
+      - name: Test portable eval and installer (offline)
+        run: npm test
 
       - name: Check committed agent symlinks resolve
         run: |
