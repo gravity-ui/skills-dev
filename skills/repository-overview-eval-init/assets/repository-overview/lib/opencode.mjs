@@ -34,5 +34,5 @@ export function normalize(events, stderr = '') {
     } else if (!['step_start', 'reasoning'].includes(event.type)) collector.parserWarnings.push(`Unsupported OpenCode event: ${event.type}`);
   }
   response += [...texts.values()].join('');
-  return {response, usage, reportedCostUsd, modelIdentifiers: modelIdentifiers(events), ...collector.finish(), ...diagnostics(messages)};
+  return {response, usage, reportedCostUsd, modelIdentifiers: modelIdentifiers(events), ...collector.finish(), ...diagnostics(messages, 'opencode')};
 }

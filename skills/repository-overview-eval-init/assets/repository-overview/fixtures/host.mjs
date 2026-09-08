@@ -6,11 +6,15 @@ const args = process.argv.slice(2);
 if (args.includes('--version')) console.log('fixture-cli 1');
 else if (args.includes('app-server')) {
   const config = {approval_policy: 'on-request', sandbox_mode: 'read-only', web_search: 'disabled'};
+  for (let i = 0; i < args.length; i++) if (args[i] === '--config') {
+    const separator = args[i + 1].indexOf('=');
+    config[args[i + 1].slice(0, separator)] = JSON.parse(args[i + 1].slice(separator + 1));
+  }
   const stream = createInterface({input: process.stdin});
   stream.on('line', (line) => {
     const request = JSON.parse(line);
     if (!request.id) return;
-    const result = request.method === 'config/read' ? {config} : request.method === 'configRequirements/read' ? {requirements: null} : {};
+    const result = request.method === 'config/read' ? {config, layers: [{name: {type: 'sessionFlags'}, version: JSON.stringify(config)}]} : request.method === 'configRequirements/read' ? {requirements: null} : {};
     console.log(JSON.stringify({id: request.id, result}));
   });
 } else {

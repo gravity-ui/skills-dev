@@ -1,6 +1,6 @@
 ---
 name: repository-overview-eval-init
-description: Use when installing, updating, or migrating the portable repository-overview eval in a Gravity UI repository, or adding custom scenarios and retained reports. Triggers on "init repository overview eval", "update the repository-overview benchmark", "add an eval scenario", "инициализируй эвал", "обнови repository-overview", "добавь сценарий эвала". Preserves repository-owned scenarios and report history.
+description: Use when installing, updating, or migrating the portable repository-overview eval in a Gravity UI repository, or adding custom scenarios and retained reports. Triggers on "init repository overview eval", "copy the eval into this repo", "migrate repository-overview", "update the repository-overview benchmark", "add an eval scenario", "инициализируй эвал", "скопируй эвал в новый репозиторий", "мигрируй старый эвал repository-overview", "обнови repository-overview", "добавь сценарий эвала". Preserves repository-owned scenarios and report history.
 ---
 
 # Repository overview eval installation and updates
@@ -23,7 +23,9 @@ installation. Use the deterministic installer; do not recursively overwrite an e
 2. If a managed file conflicts, inspect the local and bundled versions and preserve the local
    intent when reconciling. Do not force-copy the directory or remove repository scenarios.
    `upstream.json` records the source release and managed file hashes. Unknown files, reports,
-   and custom scenarios are never silently overwritten.
+   and custom scenarios are never silently overwritten. Review `obsoleteFiles`: unchanged dropped
+   upstream files are deleted; modified ones are preserved and require manual review. Retire stale
+   runbooks after preserving useful local content in the current README.
 3. Run these checks from the repository root:
 
    ```bash
@@ -32,7 +34,7 @@ installation. Use the deterministic installer; do not recursively overwrite an e
    git status --short
    ```
 
-4. Report the installed version, changed files, scenario migration, ignore-rule checks and test
+4. Report the installed version, changed/obsolete files, scenario migration, ignore-rule checks and test
    outcome. The installer keeps `.eval-artifacts/` ignored and verifies that core files, custom
    scenarios, and `reports/` remain visible to Git, including under broad `.agents/` ignore rules.
    Treat a failed visibility check as unfinished integration and show the offending rule.
@@ -51,7 +53,8 @@ running an authorized experiment.
   them. Start from `examples/overview.json` and `examples/focused-task.json`, replacing all
   placeholders with repository facts and source paths. Do not claim factual quality from headings.
 - Updates from the old layout preserve `scenario.json` and create a schema-compatible
-  `scenarios/repository/legacy.json` with an incremented version. Use the migrated file explicitly.
+  `scenarios/repository/legacy.json` with a distinct `<old-id>-legacy` ID and incremented version.
+  Both 1.1.0 and 1.1.1 core hashes are recognized. Use the migrated file explicitly.
 - Link the eval from contributor/navigation documentation and expose native test/run aliases if
   the repository uses a task runner. Include vendored files in the repository's lint/format checks;
   do not ignore `.agents/` wholesale. CI runs fixtures only, never live benchmarks.

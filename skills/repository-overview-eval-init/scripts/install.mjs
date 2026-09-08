@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-import {existsSync, lstatSync, readFileSync, writeFileSync, mkdirSync} from 'node:fs';
+import {existsSync, lstatSync, readFileSync, writeFileSync, mkdirSync, unlinkSync} from 'node:fs';
 import {resolve, dirname, relative, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {canonicalPath} from '../assets/repository-overview/lib/repository.mjs';
 import {effectiveScenario} from '../assets/repository-overview/lib/contracts.mjs';
-import {parseArgs, readJson} from '../assets/repository-overview/lib/shared.mjs';
+import {parseArgs, readJson, validateOptions} from '../assets/repository-overview/lib/shared.mjs';
 
 const bundle = resolve(dirname(fileURLToPath(import.meta.url)), '../assets/repository-overview');
 const targetPath = '.agents/evals/repository-overview';
@@ -17,6 +17,7 @@ function git(repo, args) {
   return r.stdout.trim();
 }
 function safe(root, path) {
+  root = resolve(root);
   if (path.startsWith('/') || path.includes('\\') || path.split('/').some((part) => ['..', '.', ''].includes(part))) throw new Error(`Unsafe managed path: ${path}`);
   const file = resolve(root, path);
   let current = file;
@@ -24,7 +25,9 @@ function safe(root, path) {
     if (existsSync(current) || (() => { try { return lstatSync(current).isSymbolicLink(); } catch { return false; } })()) {
       if (lstatSync(current).isSymbolicLink()) throw new Error(`Refusing symlink: ${current}`);
     }
-    current = dirname(current);
+    const parent = dirname(current);
+    if (parent === current) throw new Error(`Path escapes root: ${path}`);
+    current = parent;
   }
   return file;
 }
@@ -39,7 +42,9 @@ export function install({repo, update = false, dryRun = false, source = bundle})
   const upstream = readJson(resolve(source, 'upstream.json'));
   const statePath = safe(repo, `${targetPath}/upstream.json`);
   const legacy = readJson(resolve(dirname(fileURLToPath(import.meta.url)), '../references/legacy-files.json'));
-  const previous = existsSync(statePath) ? readJson(statePath) : existsSync(destination) ? legacy : {files: {}};
+  const histories = existsSync(statePath) ? [readJson(statePath)] : existsSync(destination) ? legacy.releases : [];
+  const previousHashes = (path) => histories.map((release) => release.files[path]).filter(Boolean);
+  const previousPaths = [...new Set(histories.flatMap((release) => Object.keys(release.files)))];
   const writes = [];
   const conflicts = [];
   for (const [path, expected] of Object.entries(upstream.files)) {
@@ -47,7 +52,7 @@ export function install({repo, update = false, dryRun = false, source = bundle})
     const to = safe(repo, `${targetPath}/${path}`);
     const content = readFileSync(safe(source, path));
     if (hash(content) !== expected) throw new Error(`Bundle manifest is stale: ${path}`);
-    if (existsSync(to) && hash(readFileSync(to)) !== expected && hash(readFileSync(to)) !== previous.files[path]) conflicts.push(path);
+    if (existsSync(to) && hash(readFileSync(to)) !== expected && !previousHashes(path).includes(hash(readFileSync(to)))) conflicts.push(path);
     else if (!existsSync(to) || hash(readFileSync(to)) !== expected) writes.push([to, content]);
   }
   // Preserve the original file; migrate a separate scenario to the new explicit contract.
@@ -55,6 +60,7 @@ export function install({repo, update = false, dryRun = false, source = bundle})
   if (existsSync(oldScenario) && !existsSync(statePath)) {
     const to = safe(repo, `${targetPath}/scenarios/repository/legacy.json`);
     const scenario = readJson(oldScenario);
+    scenario.id = `${scenario.id}-legacy`;
     scenario.version += 1;
     for (const assertion of scenario.assertions) {
       assertion.group ??= assertion.type.startsWith('answer-') ? 'quality' : 'route';
@@ -64,6 +70,14 @@ export function install({repo, update = false, dryRun = false, source = bundle})
     const content = Buffer.from(`${JSON.stringify(effectiveScenario(scenario), null, 2)}\n`);
     if (existsSync(to) && !readFileSync(to).equals(content)) conflicts.push('scenarios/repository/legacy.json');
     else if (!existsSync(to)) writes.push([to, content]);
+  }
+  const obsoleteFiles = [];
+  for (const path of previousPaths.filter((path) => !Object.hasOwn(upstream.files, path))) {
+    const file = safe(repo, `${targetPath}/${path}`);
+    if (!existsSync(file)) continue;
+    const protectedPath = path === 'scenario.json' || path === 'upstream.json' || /^(?:scenarios\/repository|reports|\.eval-artifacts)(?:\/|$)/u.test(path);
+    const unchanged = !protectedPath && lstatSync(file).isFile() && previousHashes(path).includes(hash(readFileSync(file)));
+    obsoleteFiles.push({path, action: unchanged ? 'delete' : 'preserve', reason: protectedPath ? 'repository-owned or retained legacy scenario' : unchanged ? 'unchanged upstream file' : 'local changes; review obsolete content manually'});
   }
   if (conflicts.length) throw new Error(`Local managed-file conflicts; no files changed: ${conflicts.join(', ')}. Review and reconcile against the bundled version, then retry.`);
   const ignorePath = safe(repo, '.gitignore');
@@ -94,6 +108,7 @@ export function install({repo, update = false, dryRun = false, source = bundle})
   writes.push([statePath, Buffer.from(`${JSON.stringify(upstream, null, 2)}\n`)]);
   if (newIgnore !== oldIgnore) writes.push([ignorePath, Buffer.from(newIgnore)]);
   if (!dryRun) {
+    for (const file of obsoleteFiles.filter(({action}) => action === 'delete')) unlinkSync(safe(repo, `${targetPath}/${file.path}`));
     for (const [path, content] of writes) { mkdirSync(dirname(path), {recursive: true}); writeFileSync(path, content); }
     for (const path of ['run.mjs', 'scenarios/repository/example.json', 'reports/runs/example.json', 'reports/runs/example.md', 'reports/comparisons/example.json']) {
       const r = spawnSync('git', ['-C', repo, 'check-ignore', '--no-index', '-q', `${targetPath}/${path}`]);
@@ -101,12 +116,13 @@ export function install({repo, update = false, dryRun = false, source = bundle})
     }
     if (spawnSync('git', ['-C', repo, 'check-ignore', '--no-index', '-q', `${targetPath}/.eval-artifacts/raw.jsonl`]).status !== 0) throw new Error('Raw artifacts are not ignored; inspect nested ignore rules');
   }
-  return {mode: dryRun ? 'dry-run' : update ? 'updated' : 'installed', upstreamVersion: upstream.version, files: writes.map(([path]) => relative(repo, path).split(sep).join('/'))};
+  return {mode: dryRun ? 'dry-run' : update ? 'updated' : 'installed', upstreamVersion: upstream.version, obsoleteFiles, files: writes.map(([path]) => relative(repo, path).split(sep).join('/'))};
 }
 if (process.argv[1] && canonicalPath(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const options = parseArgs(process.argv.slice(2), ['update', 'dry-run']);
+    validateOptions(options, ['help', 'repo', 'update', 'dryRun']);
     if (options.help) console.log('Usage: node install.mjs --repo <path> [--update] [--dry-run]');
-    else console.log(JSON.stringify(install({repo: options.repo ?? process.cwd(), ...options}), null, 2));
+    else console.log(JSON.stringify(install({repo: options.repo ?? process.cwd(), update: options.update, dryRun: options.dryRun}), null, 2));
   } catch (error) { console.error(error.message); process.exitCode = 1; }
 }

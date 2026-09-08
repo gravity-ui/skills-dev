@@ -7,12 +7,13 @@ import {canonicalPath} from './lib/repository.mjs';
 import {validateArtifact, invalidReasons, canonical} from './lib/contracts.mjs';
 import {aggregate} from './lib/results.mjs';
 import {sanitizedRun, renderRun, uniqueId, assertReportVisible} from './lib/reports.mjs';
-import {format, formatPercent, median, parseArgs, readJson} from './lib/shared.mjs';
+import {format, formatPercent, median, parseArgs, validateOptions, readJson} from './lib/shared.mjs';
 
 const evalRoot = dirname(fileURLToPath(import.meta.url));
 
 function main() {
   const options = parseArgs(process.argv.slice(2), ['fail-on-regression']);
+  validateOptions(options, ['help', 'baseline', 'candidate', 'threshold', 'failOnRegression', 'output']);
   if (options.help || !options.baseline || !options.candidate) return printHelp(options.help ? 0 : 1);
   const baselineDir = resolve(options.baseline);
   const candidateDir = resolve(options.candidate);
@@ -23,8 +24,8 @@ function main() {
     ? resolve(options.output)
     : resolve(evalRoot, 'reports/comparisons', `${uniqueId()}.json`);
   const markdownOutput = output.endsWith('.json') ? output.replace(/\.json$/u, '.md') : `${output}.md`;
-  assertReportVisible(process.cwd(), output);
-  assertReportVisible(process.cwd(), markdownOutput);
+  assertReportVisible(output);
+  assertReportVisible(markdownOutput);
   createFreshOutput(output, markdownOutput);
   writeFileSync(output, `${JSON.stringify(comparison, null, 2)}\n`);
   writeFileSync(markdownOutput, render(comparison));

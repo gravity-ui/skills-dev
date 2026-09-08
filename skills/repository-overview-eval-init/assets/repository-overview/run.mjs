@@ -16,6 +16,7 @@ import {
   evaluateAssertions,
   listRepositoryFiles,
   parseArgs,
+  validateOptions,
   parseJsonLines,
   readJson,
   referencedPaths,
@@ -27,10 +28,7 @@ const adapters = {codex, claude, opencode};
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
-  const supportedOptions = new Set(['help', 'host', 'repo', 'model', 'effort', 'repeat', 'timeoutMs', 'scenario', 'output']);
-  for (const key of Object.keys(options)) {
-    if (!supportedOptions.has(key)) throw new Error(`Unsupported option: --${key.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`)}`);
-  }
+  validateOptions(options, ['help', 'host', 'repo', 'model', 'effort', 'repeat', 'timeoutMs', 'scenario', 'output']);
   if (options.help) return printHelp();
 
   const host = options.host ?? detectHost();
@@ -44,8 +42,8 @@ async function main() {
   const artifactRoot = resolve(evalRoot, '.eval-artifacts');
   const outputDir = resolve(options.output ?? resolve(artifactRoot, 'runs', runId));
   const reportsRoot = resolve(evalRoot, 'reports');
-  assertReportVisible(repo, resolve(reportsRoot, 'runs', `${runId}.json`));
-  assertReportVisible(repo, resolve(reportsRoot, 'runs', `${runId}.md`));
+  assertReportVisible(resolve(reportsRoot, 'runs', `${runId}.json`));
+  assertReportVisible(resolve(reportsRoot, 'runs', `${runId}.md`));
   const excludedRoots = [artifactRoot, reportsRoot, outputDir];
   if (evalRoot.startsWith(`${repo}${sep}`)) excludedRoots.push(evalRoot);
   const inventory = listRepositoryFiles(repo, excludedRoots);
@@ -61,7 +59,7 @@ async function main() {
     const attemptDir = resolve(outputDir, 'attempts', String(index));
     mkdirSync(attemptDir, {recursive: true});
     process.stderr.write(`repository-overview: ${host} attempt ${index}/${repeat}\n`);
-    const policy = adapters[host].preflight ? await adapters[host].preflight({repo}) : {requested: {mode: 'plan'}, effective: {mode: 'plan'}, verification: 'CLI flags; Git mutation audit'};
+    const policy = adapters[host].preflight ? await adapters[host].preflight({repo, model: options.model, effort: options.effort}) : {requested: {mode: 'plan'}, effective: {mode: 'plan'}, verification: 'CLI flags; Git mutation audit'};
     if (adapterContract && JSON.stringify(adapterContract) !== JSON.stringify(policy)) throw new Error('Adapter policy changed between attempts');
     adapterContract = policy;
     attempts.push(await runAttempt({
@@ -95,7 +93,7 @@ async function main() {
   writeFileSync(resolve(outputDir, 'result.json'), `${JSON.stringify(result, null, 2)}\n`);
   const summary = sanitizedRun(result);
   writeFileSync(resolve(outputDir, 'report.md'), renderRun(summary));
-  const report = writeReportPair(reportsRoot, 'runs', runId, summary, renderRun(summary), repo);
+  const report = writeReportPair(reportsRoot, 'runs', runId, summary, renderRun(summary));
   process.stdout.write(`Report: ${report}\n`);
   process.stdout.write(`${outputDir}\n`);
   if (result.mutationDetected || attempts.some((attempt) => invalidReasons(attempt).length)) process.exitCode = 1;

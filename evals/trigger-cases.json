@@ -2,32 +2,87 @@
   {
     "id": "github-cli-setup-missing-command",
     "prompt": "gh: command not found — help me set it up",
-    "expectedSkills": ["github-cli-setup"]
+    "expectedSkills": [
+      "github-cli-setup"
+    ]
   },
   {
     "id": "github-cli-setup-russian-auth",
     "prompt": "Настрой gh, он пишет, что я не залогинен",
-    "expectedSkills": ["github-cli-setup"]
+    "expectedSkills": [
+      "github-cli-setup"
+    ]
   },
   {
     "id": "gravity-ui-pr-create-open",
     "prompt": "Open a pull request for my changes in gravity-ui/uikit",
-    "expectedSkills": ["github-cli-setup", "gravity-ui-pr-create"]
+    "expectedSkills": [
+      "github-cli-setup",
+      "gravity-ui-pr-create"
+    ]
   },
   {
     "id": "gravity-ui-pr-create-title",
     "prompt": "Как назвать PR с новым свойством loading у Button? Это feat или fix?",
-    "expectedSkills": ["gravity-ui-pr-create"]
+    "expectedSkills": [
+      "gravity-ui-pr-create"
+    ]
   },
   {
     "id": "repository-overview-eval-init-english",
     "prompt": "Initialize the portable repository-overview eval in this Gravity UI repository so we can benchmark our AGENTS.md changes",
-    "expectedSkills": ["repository-overview-eval-init"]
+    "expectedSkills": [
+      "repository-overview-eval-init"
+    ]
   },
   {
     "id": "repository-overview-eval-init-russian",
     "prompt": "Скопируй эвал repository-overview в этот новый репозиторий gravity-ui и настрой gitignore для артефактов",
-    "expectedSkills": ["repository-overview-eval-init"]
+    "expectedSkills": [
+      "repository-overview-eval-init"
+    ]
+  },
+  {
+    "id": "repository-overview-eval-update-english",
+    "prompt": "Update the repository-overview benchmark in this Gravity UI repository, preserving our custom scenarios and reports.",
+    "expectedSkills": [
+      "repository-overview-eval-init"
+    ]
+  },
+  {
+    "id": "repository-overview-eval-update-russian",
+    "prompt": "Обнови repository-overview в gravity-ui/uikit, сохрани локальные сценарии и отчеты.",
+    "expectedSkills": [
+      "repository-overview-eval-init"
+    ]
+  },
+  {
+    "id": "repository-overview-eval-scenario-english",
+    "prompt": "Add an eval scenario for a focused task to our installed repository-overview benchmark.",
+    "expectedSkills": [
+      "repository-overview-eval-init"
+    ]
+  },
+  {
+    "id": "repository-overview-eval-scenario-russian",
+    "prompt": "Добавь сценарий эвала для узкой задачи в repository-overview этого репозитория Gravity UI.",
+    "expectedSkills": [
+      "repository-overview-eval-init"
+    ]
+  },
+  {
+    "id": "repository-overview-eval-migrate-english",
+    "prompt": "Migrate our legacy repository-overview scenario.json to the new scenario layout in this Gravity UI repository.",
+    "expectedSkills": [
+      "repository-overview-eval-init"
+    ]
+  },
+  {
+    "id": "repository-overview-eval-migrate-russian",
+    "prompt": "Мигрируй старый эвал repository-overview на новую структуру в gravity-ui/uikit.",
+    "expectedSkills": [
+      "repository-overview-eval-init"
+    ]
   },
   {
     "id": "github-general-question",
@@ -42,6 +97,8 @@
   {
     "id": "consumer-app-pr",
     "prompt": "Create a pull request for my application that uses @gravity-ui/uikit",
-    "expectedSkills": ["github-cli-setup"]
+    "expectedSkills": [
+      "github-cli-setup"
+    ]
   }
 ]

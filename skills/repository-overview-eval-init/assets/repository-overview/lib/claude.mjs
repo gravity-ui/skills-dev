@@ -1,5 +1,5 @@
 import {modelIdentifiers, diagnostics, eventCollector, toolClass} from './events.mjs';
-import { findCost, normalizeUsage, textFromContent} from './shared.mjs';
+import {findCost, normalizeUsage, textFromContent} from './shared.mjs';
 
 export function command({repo, model, effort, prompt}) {
   const args = [
@@ -50,5 +50,5 @@ export function normalize(events, stderr = '') {
     const cost = findCost(event);
     if (cost !== null) reportedCostUsd = cost;
   }
-  return {response, usage, reportedCostUsd, modelIdentifiers: modelIdentifiers(events), ...collector.finish(), ...diagnostics(hostErrors)};
+  return {response, usage, reportedCostUsd, modelIdentifiers: modelIdentifiers(events), ...collector.finish(), ...diagnostics(hostErrors, 'claude')};
 }

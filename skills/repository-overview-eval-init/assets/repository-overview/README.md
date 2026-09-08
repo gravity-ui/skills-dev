@@ -9,7 +9,9 @@ Install or update using the `repository-overview-eval-init` skill. The source of
 `gravity-ui/skills-dev`; `upstream.json` pins the release and hashes of the installed core. Updating
 through the skill replaces reviewed upstream files only. Local modifications to managed files
 produce conflicts before any write. Reconcile those files and retry; never force-copy the directory.
-Unknown files are retained, including obsolete files from older releases.
+Unknown files are retained. Files removed from the new manifest are listed in `obsoleteFiles`:
+unchanged upstream copies are deleted; locally modified copies are preserved for manual review.
+Repository scenarios, reports, raw artifacts, and the retained legacy `scenario.json` are protected.
 
 ```text
 .agents/evals/repository-overview/
@@ -36,9 +38,14 @@ a comparison also refuses to write an ignored report. Nested ignore rules can re
 
 From the old `scenario.json` layout, `--update` preserves the original and creates
 `scenarios/repository/legacy.json`, moves generic headings/citation checks to structural, and
-increments its version. Use the migrated scenario explicitly. Modified legacy core files cause
-conflicts; the bundled historical checksums identify the 1.1.1 core. Old result schemas are rejected
-with a request to collect a new baseline.
+increments its version and appends `-legacy` to its ID (for example, `repository-overview-legacy`).
+Use the migrated scenario explicitly; it has its own report history. Modified legacy core files
+cause conflicts; historical checksums identify both 1.1.0 and 1.1.1. Unmodified legacy `EVAL.md`
+and `prices.json` are removed so obsolete execution instructions cannot survive an update.
+
+Version 2.0.0 is a breaking release: `--prices` is removed, scenarios use the explicit new layout,
+and run artifact schema 2 rejects old baselines. Keep historical reports, but collect a new baseline
+before comparing with this measurement contract.
 
 ### Use `upstream.json` and update the core
 
@@ -60,7 +67,10 @@ From the target repository root, preview the update:
 node <skill-dir>/scripts/install.mjs --repo . --update --dry-run
 ```
 
-Review `upstreamVersion` and `files` in the JSON output. The preview checks bundle hashes and local
+Review `upstreamVersion`, `files`, and `obsoleteFiles` in the JSON output. For obsolete files,
+`action: "delete"` means their current hash matches a previous upstream release; `action: "preserve"`
+means protected content or local changes. Move any useful content from a modified obsolete runbook
+into the current README, then remove that obsolete file yourself after review. The preview checks bundle hashes and local
 conflicts without writing files. Effective ignore rules are checked after installation, so a
 successful preview alone does not prove that reports will be visible to Git. Apply the update:
 
@@ -164,7 +174,7 @@ Unknown assertion types/properties, duplicate IDs and invalid budgets fail valid
 | `max-failed-tool-calls` | route | `maximum`; failed calls at or below budget. |
 | `max-path-revisits` | route | `maximum`; references minus distinct paths at or below budget. |
 | `max-unique-paths` | route | `maximum`; distinct observed paths at or below budget. |
-| `no-web-search` | route | Zero normalized web-search calls. |
+| `no-web-search` | route | Zero normalized web-search or web-fetch calls. |
 
 Budgets are nonnegative integers and inclusive. `optional: true` is supported only by
 `answer-fact-with-source`, `trace-path-required`, and `trace-paths-before`. No overlays or batch suite
@@ -225,20 +235,31 @@ when using saved summaries. Every invocation writes a new timestamp/UUID-named c
 threshold; `--fail-on-regression` returns nonzero for `regressed` or `mixed` results.
 
 `run.mjs --help` lists options. `--host claude` and `--host opencode` select the other adapters;
-`--output` changes only the raw directory. Reports always go beside the installed core. The default
+`--output` changes only the raw directory. Reports always go beside the installed core. `--repo`
+selects the measured repository independently of report storage. Visibility is checked using the
+Git repository that owns the output path, including for `compare.mjs --output`; the caller's working
+directory need not be a Git repository when input paths are absolute. Report output outside any Git
+repository is rejected with an instruction to choose a retained location. The default
 timeout is ten minutes per attempt. Run exit code is nonzero for invalid attempts or mutations;
 assertion results describe quality/route independently of process completion.
 
 ## What is measured
 
 - Completed attempts are process successes with a nonempty answer; valid attempts additionally
-  have no degradation, host/parser errors, web searches or repository mutation.
-- Commands, MCP, web searches and external tools normalize to one event per identifiable call;
+  have no degradation, host/parser errors, web searches/fetches or repository mutation.
+- Commands, MCP, web searches/fetches and external tools normalize to one event per identifiable call;
   start/completion updates preserve earlier useful output. Failed commands count once and are
   distinct from host failures. Unknown event shapes invalidate parser health instead of silently
   undercounting tool calls. Unknown diagnostic text is a host error.
 - Codex retains the last nonempty answer. Its reviewed skill-description-shortening diagnostic
-  (exact text captured from Codex CLI 0.153.4 in `fixtures/codex.jsonl`) is a warning. Other wording remains blocking until captured and reviewed as a fixture.
+  (exact text captured from Codex CLI 0.153.4 in `fixtures/codex.jsonl`) is a warning.
+  Claude/OpenCode have separate allowlists: the exact Node.js SQLite experimental warning and its
+  immediately following trace hint are nonfatal (`fixtures/node-sqlite.stderr`, a synthetic fixture).
+  Only the variable Node process ID is stripped. Unknown warnings, including other
+  `ExperimentalWarning` messages, remain blocking until reviewed and covered by a fixture.
+- The historical metric name `webSearchCalls` and assertion `no-web-search` cover both search and
+  fetch, including Claude `WebFetch` and OpenCode `webfetch`. Generic MCP/external calls remain
+  informational; classification cannot prove that arbitrary tools avoided the network.
 - Token `input` includes uncached input, cache reads and cache creation. Claude/OpenCode disjoint
   counters are normalized before totals; Codex's inclusive counter is not added twice.
   `uncachedInputTokens` subtracts both cache classes. Unknown usage is not invented. Cost is recorded only when the host reports it.
@@ -250,11 +271,25 @@ assertion results describe quality/route independently of process completion.
 
 Codex preflight calls local app-server `config/read` and `configRequirements/read` without creating
 a thread or turn. It verifies `read-only`, `on-request`, `web_search=disabled` under the same explicit
-config overrides used for `exec --json --ephemeral`. User/project config is loaded consistently for
-both commands; requested and effective policy values are recorded. Unsupported preflight protocols,
-incompatible managed restrictions, and unverifiable settings fail before a model attempt. See the
+config overrides used for `exec --json --ephemeral`, including explicit model and effort settings.
+User/project config is deliberately loaded consistently for both commands; `--ignore-user-config`
+is not used. Requested/effective policies and SHA-256 fingerprints of model settings, instruction
+settings, and opaque configuration-layer versions are recorded in the adapter contract. Layer
+versions cover configuration changes including MCP definitions without inspecting MCP credentials
+or persisting raw config, instructions, endpoints, arguments, environment values, or personal paths.
+A changed fingerprint blocks subsequent attempts and makes baseline/candidate contracts incompatible.
+Missing layer metadata, unsupported preflight protocols, incompatible managed restrictions, and
+unverifiable settings fail before a model attempt. See the
 [Codex app-server protocol](https://developers.openai.com/codex/app-server). Claude and OpenCode use
 their plan modes with Git auditing; reports identify their weaker, CLI-flag-based verification.
+
+This is not a hermetic Codex environment. Keep config layers fixed during an experiment; even an
+unrelated config edit can conservatively require a new baseline. Fingerprints do not pin contents
+of files referenced by config, MCP executables, remote MCP service state, injected context, or model
+aliases. Hold those inputs fixed and document them when making reproducibility claims. Repository
+`AGENTS.md` and documentation changes remain the intended experiment variable. Generic external
+calls alone do not invalidate the run; review their raw evidence before claiming repository-only
+behavior beyond the observed search/fetch checks.
 
 ## Retained evidence and long-term comparisons
 
@@ -275,7 +310,7 @@ adapter version/contract, artifact schema and attempt count. One ineligible atte
 the entire experiment with exact reasons, even if other attempts look faster. Missing required
 artifact fields fail validation; old schemas require new baselines.
 
-- `invalid`: incompatible contracts, failed/degraded attempts, web searches or mutations; verdict
+- `invalid`: incompatible contracts, failed/degraded attempts, web searches/fetches or mutations; verdict
   is always `inconclusive`.
 - `limited`: compatible clean measurements but fewer than three attempts, unspecified model/effort,
   or no factual quality assertions. Metric movement is descriptive; it cannot prove a net win.

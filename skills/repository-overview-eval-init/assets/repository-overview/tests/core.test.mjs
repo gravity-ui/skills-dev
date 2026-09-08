@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {normalize as codex} from '../lib/codex.mjs';
 import {normalize as claude} from '../lib/claude.mjs';
 import {normalize as opencode} from '../lib/opencode.mjs';
-import {verifyPolicy, requested} from '../lib/codex-policy.mjs';
+import {configurationFingerprint, configArgs, verifyPolicy, requested} from '../lib/codex-policy.mjs';
 import {parseJsonLines, normalizeUsage, evaluateAssertions, assertionScores} from '../lib/shared.mjs';
 import {effectiveScenario, digest, validateArtifact} from '../lib/contracts.mjs';
 import {aggregate} from '../lib/results.mjs';
@@ -162,4 +162,55 @@ test('Host-reported cost survives normalization, saved reports and comparisons',
   assert.equal(saved.aggregate.reportedCostUsd.median, 0.25);
   assert.equal(compareResults(baseline, saved).dimensions.reportedCostUsd.signal, 'better');
   assert.equal(sanitizedRun(run()).aggregate.reportedCostUsd.median, null);
+});
+
+for (const [host, normalize] of Object.entries({claude, opencode})) {
+  test(`${host} WebFetch is a web call and invalidates a repository-only experiment`, () => {
+    const normalized = normalize(fixture(`${host}-webfetch`).events);
+    assert.deepEqual(normalized.trace.map((event) => event.kind), ['web']);
+    assert.deepEqual(normalized.parserWarnings, []);
+    const webSearchCalls = normalized.trace.filter((event) => event.kind === 'web').length;
+    assert.equal(runAssertion(assertion('no-web-search'), [], {webSearchCalls}).passed, false);
+    const candidate = run(500); candidate.attempts[0].metrics.webSearchCalls = webSearchCalls;
+    assert.equal(compareResults(run(), candidate).assessment.experiment.validity, 'invalid');
+  });
+  test(`${host} allows only reviewed diagnostic text and its attached hint`, () => {
+    const stderr = readFileSync(new URL('../fixtures/node-sqlite.stderr', import.meta.url), 'utf8');
+    const normalized = normalize(fixture(host).events, stderr);
+    assert.equal(normalized.hostWarnings.length, 2);
+    assert.deepEqual(normalized.hostErrors, []);
+    const candidate = run(500); candidate.attempts[0].metrics.hostWarningCount = normalized.hostWarnings.length;
+    assert.equal(compareResults(run(), candidate).assessment.experiment.validity, 'valid');
+    for (const text of ['ExperimentalWarning: Unreviewed feature', stderr.split('\n')[1], 'fatal error']) {
+      assert.equal(normalize([], text).hostErrors.length, 1);
+    }
+    assert.equal(normalize([], 'Skill descriptions were shortened to fit the skills context budget. Codex can still see every skill, but some descriptions are shorter. Disable unused skills or plugins to leave more room for the rest.').hostErrors.length, 1);
+    assert.equal(codex([], stderr).hostErrors.length, 2);
+  });
+}
+test('Codex config fingerprints block model, instruction and MCP-layer drift without exposing configuration', () => {
+  const input = {config: {model: 'fixture', developer_instructions: 'private instructions'}, layers: [
+    {name: {type: 'user', file: '/private/config.toml'}, version: 'opaque-v1', config: {mcp_servers: {fixture: {env: {TOKEN: 'secret-sentinel'}}}}},
+  ]};
+  const fingerprint = configurationFingerprint(input);
+  const a = run(); a.environment.adapterContract.configuration = fingerprint;
+  assert.equal(compareResults(a, structuredClone(a)).assessment.experiment.validity, 'valid');
+  for (const change of [
+    (value) => value.config.model = 'another-model',
+    (value) => value.config.developer_instructions = 'other instructions',
+    (value) => value.layers[0].version = 'opaque-v2-after-mcp-change',
+  ]) {
+    const changed = structuredClone(input); change(changed);
+    const b = structuredClone(a); b.environment.adapterContract.configuration = configurationFingerprint(changed);
+    assert.equal(compareResults(a, b).assessment.experiment.validity, 'invalid');
+  }
+  assert.ok(!JSON.stringify(sanitizedRun(a)).includes('secret-sentinel'));
+  assert.ok(!JSON.stringify(fingerprint).includes('private'));
+  // Credential-bearing config objects are deliberately never inspected by the fingerprint.
+  Object.defineProperty(input.layers[0], 'config', {get() { throw new Error('must not read config'); }});
+  assert.deepEqual(configurationFingerprint(input), fingerprint);
+  assert.throws(() => configurationFingerprint({config: {}, layers: null}), /could not be fingerprinted/);
+  assert.throws(() => configurationFingerprint({config: {}, layers: [{name: {type: 'user'}}]}), /could not be fingerprinted/);
+  const args = configArgs({model: 'fixture', effort: 'high'});
+  assert.ok(args.includes('model="fixture"')); assert.ok(args.includes('model_reasoning_effort="high"'));
 });

@@ -1,6 +1,6 @@
-import {mkdirSync, writeFileSync} from 'node:fs';
+import {mkdirSync, writeFileSync, existsSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
-import {resolve, relative} from 'node:path';
+import {resolve, relative, dirname} from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {canonicalPath} from './repository.mjs';
 import {aggregate} from './results.mjs';
@@ -28,18 +28,28 @@ export function sanitizedRun(result) {
     createdAt: result.createdAt, manualReview: result.manualReview ?? {status: 'not-performed'},
   };
 }
-export function assertReportVisible(repo, path) {
-  repo = canonicalPath(repo); path = canonicalPath(path);
+export function assertReportVisible(path) {
+  path = canonicalPath(path);
+  let parent = dirname(path);
+  while (!existsSync(parent)) {
+    const next = dirname(parent);
+    if (next === parent) throw new Error(`Cannot resolve report directory: ${path}`);
+    parent = next;
+  }
+  const owner = spawnSync('git', ['-C', parent, 'rev-parse', '--show-toplevel'], {encoding: 'utf8'});
+  if (owner.status !== 0) throw new Error(`Report output is outside a Git repository: ${path}. Choose an output inside the repository that will retain the report.`);
+  const repo = canonicalPath(owner.stdout.trim());
   const r = spawnSync('git', ['-C', repo, 'check-ignore', '--no-index', '-q', relative(repo, path)], {encoding: 'utf8'});
   if (r.status === 0) throw new Error(`Report is ignored by Git: ${relative(repo, path)}. Update the eval installation / ignore rules before benchmarking.`);
-  if (r.status !== 1) throw new Error('Cannot verify report Git visibility');
+  if (r.status !== 1) throw new Error(`Cannot verify report Git visibility in ${repo}: ${relative(repo, path)}`);
+  return repo;
 }
-export function writeReportPair(root, category, id, value, markdown, repo) {
+export function writeReportPair(root, category, id, value, markdown) {
   const dir = resolve(root, category);
   mkdirSync(dir, {recursive: true});
   const json = resolve(dir, `${id}.json`);
   const md = resolve(dir, `${id}.md`);
-  if (repo) { assertReportVisible(repo, json); assertReportVisible(repo, md); }
+  assertReportVisible(json); assertReportVisible(md);
   writeFileSync(json, `${JSON.stringify(value, null, 2)}\n`, {flag: 'wx'});
   writeFileSync(md, markdown, {flag: 'wx'});
   return json;

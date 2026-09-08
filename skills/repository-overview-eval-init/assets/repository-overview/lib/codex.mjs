@@ -4,9 +4,8 @@ export {preflight} from './codex-policy.mjs';
 import {configArgs} from './codex-policy.mjs';
 
 export function command({repo, model, effort, prompt}) {
-  const args = ['--ask-for-approval', 'on-request', ...configArgs(), 'exec', '--json', '--ephemeral', '--sandbox', 'read-only', '--cd', repo];
+  const args = ['--ask-for-approval', 'on-request', ...configArgs({model, effort}), 'exec', '--json', '--ephemeral', '--sandbox', 'read-only', '--cd', repo];
   if (model) args.push('--model', model);
-  if (effort) args.push('--config', `model_reasoning_effort=${JSON.stringify(effort)}`);
   args.push(prompt);
   return {executable: 'codex', args, cwd: repo};
 }
@@ -24,7 +23,7 @@ export function normalize(events, stderr = '') {
       if (typeof text === 'string' && text.trim()) response = text;
     }
     if (['item.started', 'item.updated', 'item.completed'].includes(event.type)) {
-      const kinds = {command_execution: 'command', mcp_tool_call: 'mcp', tool_call: 'external', web_search: 'web', file_change: 'external'};
+      const kinds = {command_execution: 'command', mcp_tool_call: 'mcp', tool_call: 'external', web_search: 'web', web_fetch: 'web', file_change: 'external'};
       if (kinds[item.type]) {
         collector.tool(item.id, item.name ?? item.type, item.command ?? item.arguments ?? item.input ?? item.query ?? item.changes,
           item.aggregated_output ?? item.output ?? item.result, item.status ?? (event.type === 'item.completed' ? 'completed' : 'in_progress'), item.exit_code ?? null, kinds[item.type]);

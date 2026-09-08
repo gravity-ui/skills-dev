@@ -285,6 +285,13 @@ export function parseArgs(args, booleanFlags = []) {
   return out;
 }
 
+export function validateOptions(options, supported) {
+  const allowed = new Set(supported);
+  for (const key of Object.keys(options)) {
+    if (!allowed.has(key)) throw new Error(`Unsupported option: --${key.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`)}`);
+  }
+}
+
 export function format(value) {
   return value === null || value === undefined ? 'n/a' : Number.isInteger(value) ? String(value) : value.toFixed(4);
 }
