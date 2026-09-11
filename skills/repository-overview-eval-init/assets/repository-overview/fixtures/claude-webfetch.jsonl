@@ -1,0 +1,3 @@
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"fetch","name":"WebFetch","input":{"url":"https://example.invalid/docs","prompt":"Read docs"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"fetch","content":"Synthetic network content"}]}}
+{"type":"result","result":"Synthetic answer","usage":{"input_tokens":100,"output_tokens":20}}

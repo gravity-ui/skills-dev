@@ -1,20 +1,42 @@
 #!/usr/bin/env node
 
-import {existsSync, mkdirSync, writeFileSync} from 'node:fs';
-import {basename, dirname, resolve} from 'node:path';
+import {existsSync, mkdirSync, writeFileSync, statSync} from 'node:fs';
+import {dirname, resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
-import {format, formatPercent, median, parseArgs, readJson, timestamp} from './lib/shared.mjs';
+import {canonicalPath} from './lib/repository.mjs';
+import {validateArtifact, invalidReasons, canonical} from './lib/contracts.mjs';
+import {aggregate} from './lib/results.mjs';
+import {sanitizedRun, renderRun, uniqueId, assertReportVisible} from './lib/reports.mjs';
+import {format, formatPercent, median, parseArgs, validateOptions, readJson} from './lib/shared.mjs';
 
 const evalRoot = dirname(fileURLToPath(import.meta.url));
 
 function main() {
   const options = parseArgs(process.argv.slice(2), ['fail-on-regression']);
+  validateOptions(options, ['help', 'baseline', 'candidate', 'threshold', 'failOnRegression', 'output']);
   if (options.help || !options.baseline || !options.candidate) return printHelp(options.help ? 0 : 1);
   const baselineDir = resolve(options.baseline);
   const candidateDir = resolve(options.candidate);
-  const baseline = readJson(resolve(baselineDir, 'result.json'));
-  const candidate = readJson(resolve(candidateDir, 'result.json'));
-  const threshold = percentage(options.threshold ?? '5');
+  const load = (path) => readJson(statSync(path).isDirectory() ? resolve(path, 'result.json') : path);
+  const comparison = compareResults(load(baselineDir), load(candidateDir), percentage(options.threshold ?? '5'));
+  const {status} = comparison;
+  const output = options.output
+    ? resolve(options.output)
+    : resolve(evalRoot, 'reports/comparisons', `${uniqueId()}.json`);
+  const markdownOutput = output.endsWith('.json') ? output.replace(/\.json$/u, '.md') : `${output}.md`;
+  assertReportVisible(output);
+  assertReportVisible(markdownOutput);
+  createFreshOutput(output, markdownOutput);
+  writeFileSync(output, `${JSON.stringify(comparison, null, 2)}\n`);
+  writeFileSync(markdownOutput, render(comparison));
+  process.stdout.write(`${status}: ${output}\n`);
+  if (options.failOnRegression && ['regressed', 'mixed'].includes(status)) process.exitCode = 1;
+}
+
+export function compareResults(left, right, threshold = 0.05) {
+  validateArtifact(left); validateArtifact(right);
+  const baseline = {...left, aggregate: aggregate(left.attempts)};
+  const candidate = {...right, aggregate: aggregate(right.attempts)};
   const incompatibilities = compatible(baseline, candidate);
   const dimensions = {
     qualityScore: scoreDelta(baseline, candidate, 'qualityScore'),
@@ -23,47 +45,36 @@ function main() {
     uncachedInputTokens: efficiencyDelta(baseline, candidate, 'uncachedInputTokens', threshold),
     cachedInputTokens: valueDelta(baseline, candidate, 'cachedInputTokens'),
     reportedCostUsd: efficiencyDelta(baseline, candidate, 'reportedCostUsd', threshold),
-    estimatedCostUsd: efficiencyDelta(baseline, candidate, 'estimatedCostUsd', threshold),
     durationMs: efficiencyDelta(baseline, candidate, 'durationMs', threshold),
     toolCalls: efficiencyDelta(baseline, candidate, 'toolCalls', threshold),
     failedToolCalls: efficiencyDelta(baseline, candidate, 'failedToolCalls', threshold),
+    structuralScore: scoreDelta(baseline, candidate, 'structuralScore'),
+    ...Object.fromEntries(['hostWarnings', 'malformedJsonLines', 'parserWarnings', 'webSearchCalls', 'externalToolCalls', 'uniquePaths', 'cacheCreationInputTokens'].map((key) => [key, valueDelta(baseline, candidate, key)])),
+    invalidAttempts: {baseline: baseline.aggregate.invalidAttempts, candidate: candidate.aggregate.invalidAttempts, relative: null, signal: 'informational'},
     hostErrors: efficiencyDelta(baseline, candidate, 'hostErrors', threshold),
   };
+  for (const [key, value] of Object.entries(dimensions)) {
+    value.baselineRange = baseline.aggregate[key]?.min === undefined ? null : [baseline.aggregate[key].min, baseline.aggregate[key].max];
+    value.candidateRange = candidate.aggregate[key]?.min === undefined ? null : [candidate.aggregate[key].min, candidate.aggregate[key].max];
+  }
   const metricStatus = classify(dimensions, incompatibilities);
   const navigation = compareNavigation(baseline, candidate);
   const assessment = analyze({baseline, candidate, dimensions, incompatibilities, navigation, status: metricStatus, threshold});
   const status = assessment.experiment.validity === 'invalid' ? 'inconclusive' : metricStatus;
   const comparison = {
-    schemaVersion: 2,
+    schemaVersion: 3,
     status,
     metricStatus,
     thresholdPercent: threshold * 100,
     incompatibilities,
-    baseline: baselineDir,
-    candidate: candidateDir,
+    baseline: sanitizedRun(baseline),
+    candidate: sanitizedRun(candidate),
     dimensions,
     navigation,
     assessment,
     createdAt: new Date().toISOString(),
   };
-  const output = options.output
-    ? resolve(options.output)
-    : defaultComparisonOutput(baselineDir, candidateDir);
-  const markdownOutput = output.endsWith('.json') ? output.replace(/\.json$/u, '.md') : `${output}.md`;
-  createFreshOutput(output, markdownOutput);
-  writeFileSync(output, `${JSON.stringify(comparison, null, 2)}\n`);
-  writeFileSync(markdownOutput, render(comparison));
-  process.stdout.write(`${status}: ${output}\n`);
-  if (options.failOnRegression && ['regressed', 'mixed'].includes(status)) process.exitCode = 1;
-}
-
-function defaultComparisonOutput(baselineDir, candidateDir) {
-  const runsDir = dirname(candidateDir);
-  const artifactRoot = basename(runsDir) === 'runs'
-    ? dirname(runsDir)
-    : resolve(evalRoot, '.eval-artifacts');
-  const comparisonId = `${timestamp()}-${basename(baselineDir)}-vs-${basename(candidateDir)}`;
-  return resolve(artifactRoot, 'comparisons', comparisonId, 'comparison.json');
+  return comparison;
 }
 
 function createFreshOutput(output, markdownOutput) {
@@ -101,8 +112,13 @@ function compatible(left, right) {
   const checks = [
     ['eval.id', left.eval?.id, right.eval?.id],
     ['eval.version', left.eval?.version, right.eval?.version],
-    ['eval.prompt', left.eval?.prompt, right.eval?.prompt],
+    ['eval.digest', left.eval?.digest, right.eval?.digest],
+    ['schemaVersion', left.schemaVersion, right.schemaVersion],
+    ['repeat', left.repeat, right.repeat],
+    ['adapterVersion', left.environment?.adapterVersion, right.environment?.adapterVersion],
+    ['adapterContract', canonical(left.environment?.adapterContract), canonical(right.environment?.adapterContract)],
     ['host', left.environment?.host, right.environment?.host],
+    ['observedModelIdentifiers', canonical(left.environment?.observedModelIdentifiers ?? []), canonical(right.environment?.observedModelIdentifiers ?? [])],
     ['model', left.environment?.model, right.environment?.model],
     ['effort', left.environment?.effort, right.environment?.effort],
     ['cliVersion', left.environment?.cliVersion, right.environment?.cliVersion],
@@ -142,7 +158,7 @@ function compareEfficiency(a, b, threshold) {
 
 function classify(dimensions, incompatibilities) {
   if (incompatibilities.length) return 'inconclusive';
-  const primary = ['qualityScore', 'routeScore', 'totalTokens', 'reportedCostUsd', 'estimatedCostUsd', 'durationMs', 'toolCalls'];
+  const primary = ['qualityScore', 'routeScore', 'totalTokens', 'reportedCostUsd', 'durationMs', 'toolCalls'];
   const signals = primary.map((name) => dimensions[name].signal);
   const better = signals.includes('better');
   const worse = signals.includes('worse');
@@ -165,12 +181,19 @@ function analyze({baseline, candidate, dimensions, incompatibilities, navigation
   };
   const baselineRuns = runSummary(baseline);
   const candidateRuns = runSummary(candidate);
-  const minimumSuccessfulRuns = Math.min(baselineRuns.successful, candidateRuns.successful);
+  const minimumSuccessfulRuns = Math.min(baselineRuns.validAttempts, candidateRuns.validAttempts);
   const compatible = incompatibilities.length === 0;
-  const invalidExperiment = !compatible
+  const invalidExperiment = baseline.mutationDetected || candidate.mutationDetected || !compatible
     || baselineRuns.total !== candidateRuns.total
-    || baselineRuns.successful !== baselineRuns.total
-    || candidateRuns.successful !== candidateRuns.total;
+    || baselineRuns.validAttempts !== baselineRuns.total
+    || candidateRuns.validAttempts !== candidateRuns.total;
+
+  for (const [side, run] of [['baseline', baseline], ['candidate', candidate]]) {
+    if (run.mutationDetected) experimentFindings.push({severity: 'high', title: `${side}: repository mutation`, evidence: 'Git state changed during execution.'});
+    for (const attempt of run.attempts) for (const reason of invalidReasons(attempt)) experimentFindings.push({severity: 'high', title: `${side} attempt ${attempt.index}`, evidence: reason});
+  }
+  const limited = minimumSuccessfulRuns < 3 || [baseline, candidate].some((run) => run.environment.model === 'default' || run.environment.effort == null || run.aggregate.qualityScore.median === null);
+  if (limited) experimentFindings.push({severity: 'medium', title: 'Evidence is limited', evidence: 'Require three attempts, explicit model/effort and repository-specific factual assertions for a full experiment.'});
 
   harnessFindings.push({
     severity: status === 'regressed' ? 'high' : status === 'mixed' ? 'medium' : 'info',
@@ -190,11 +213,11 @@ function analyze({baseline, candidate, dimensions, incompatibilities, navigation
   if (baselineRuns.total !== candidateRuns.total) {
     experimentFindings.push({severity: 'high', title: 'Attempt counts are unbalanced', evidence: `Baseline: ${baselineRuns.total}; candidate: ${candidateRuns.total}.`});
   }
-  if (baselineRuns.successful !== baselineRuns.total || candidateRuns.successful !== candidateRuns.total) {
+  if (baselineRuns.validAttempts !== baselineRuns.total || candidateRuns.validAttempts !== candidateRuns.total) {
     experimentFindings.push({
       severity: 'high',
       title: 'Some attempts were unsuccessful or degraded',
-      evidence: `Successful attempts: baseline ${baselineRuns.successful}/${baselineRuns.total}, candidate ${candidateRuns.successful}/${candidateRuns.total}.`,
+      evidence: `Valid attempts: baseline ${baselineRuns.validAttempts}/${baselineRuns.total}, candidate ${candidateRuns.validAttempts}/${candidateRuns.total}.`,
     });
     addExperimentRecommendation({
       id: 'rerun-failures', priority: 'high', category: 'experiment', title: 'Rerun after eliminating host failures',
@@ -203,7 +226,7 @@ function analyze({baseline, candidate, dimensions, incompatibilities, navigation
     });
   }
   if (minimumSuccessfulRuns < 3 || baselineRuns.total !== candidateRuns.total) {
-    experimentFindings.push({severity: 'medium', title: 'Variance is not measured reliably', evidence: `Successful attempts: baseline ${baselineRuns.successful}, candidate ${candidateRuns.successful}.`});
+    experimentFindings.push({severity: 'medium', title: 'Variance is not measured reliably', evidence: `Valid attempts: baseline ${baselineRuns.validAttempts}, candidate ${candidateRuns.validAttempts}.`});
     addExperimentRecommendation({
       id: 'repeat-three', priority: 'high', category: 'experiment', title: 'Use three successful attempts per side',
       action: 'Run both baseline and candidate with --repeat 3 and compare their medians and ranges.',
@@ -264,14 +287,6 @@ function analyze({baseline, candidate, dimensions, incompatibilities, navigation
     });
   }
 
-  if (dimensions.reportedCostUsd.candidate === null && dimensions.estimatedCostUsd.candidate === null) {
-    addExperimentRecommendation({
-      id: 'configure-price', priority: 'low', category: 'experiment', title: 'Configure reproducible cost estimation if dollars matter',
-      action: 'Pin the model and add its reviewed rates to prices.json; keep null when no reliable rate is available.',
-      expectedImpact: 'Adds a comparable dollar metric without silently inventing prices.',
-    });
-  }
-
   const cacheDelta = dimensions.cachedInputTokens.relative;
   if (typeof cacheDelta === 'number' && Math.abs(cacheDelta) >= threshold) {
     experimentFindings.push({severity: 'medium', title: 'Prompt caching changed materially', evidence: `Cached input changed by ${formatPercent(cacheDelta)}; uncached input changed by ${formatPercent(dimensions.uncachedInputTokens.relative)}.`});
@@ -291,20 +306,17 @@ function analyze({baseline, candidate, dimensions, incompatibilities, navigation
       recommendations: harnessRecommendations.sort((left, right) => priorityRank(left.priority) - priorityRank(right.priority)),
     },
     experiment: {
-      validity: invalidExperiment ? 'invalid' : minimumSuccessfulRuns < 3 ? 'limited' : 'valid',
+      validity: invalidExperiment ? 'invalid' : limited ? 'limited' : 'valid',
       findings: experimentFindings,
       recommendations: experimentRecommendations.sort((left, right) => priorityRank(left.priority) - priorityRank(right.priority)),
     },
   };
 }
 
-function runSummary(result) {
+export function runSummary(result) {
   const attempts = result.attempts ?? [];
-  const total = attempts.length || result.repeat || 0;
-  const successful = attempts.length
-    ? attempts.filter((attempt) => attempt.success !== false && attempt.metrics?.degraded !== true && (attempt.metrics?.hostErrorCount ?? 0) === 0).length
-    : result.aggregate?.successfulAttempts ?? total;
-  return {total, successful};
+  return {total: attempts.length, completedAttempts: attempts.filter((a) => a.success).length,
+    validAttempts: attempts.filter((a) => invalidReasons(a).length === 0).length};
 }
 
 function verdictTitle(status) {
@@ -317,7 +329,7 @@ function verdictTitle(status) {
 }
 
 function verdictEvidence(dimensions, threshold) {
-  const primary = new Set(['qualityScore', 'routeScore', 'totalTokens', 'reportedCostUsd', 'estimatedCostUsd', 'durationMs', 'toolCalls']);
+  const primary = new Set(['qualityScore', 'routeScore', 'totalTokens', 'reportedCostUsd', 'durationMs', 'toolCalls']);
   const changed = Object.entries(dimensions)
     .filter(([name]) => primary.has(name))
     .filter(([, value]) => ['better', 'worse'].includes(value.signal))
@@ -348,9 +360,9 @@ function percentage(value) {
   return parsed / 100;
 }
 
-function render(comparison) {
+export function render(comparison) {
   const rows = Object.entries(comparison.dimensions).map(([name, value]) => (
-    `| ${name} | ${format(value.baseline)} | ${format(value.candidate)} | ${formatPercent(value.relative)} | ${value.signal} |`
+    `| ${name} | ${format(value.baseline)} | ${format(value.candidate)} | ${formatPercent(value.relative)} | ${value.signal} | ${value.baselineRange?.join(' – ') ?? 'n/a'} | ${value.candidateRange?.join(' – ') ?? 'n/a'} |`
   )).join('\n');
   const incompatible = comparison.incompatibilities.length
     ? `\n## Incompatibilities\n\n${comparison.incompatibilities.map((item) => `- ${item.field}: \`${item.baseline}\` vs \`${item.candidate}\``).join('\n')}\n`
@@ -372,7 +384,7 @@ function render(comparison) {
     `\n\n### Experiment setup recommendations\n\n` +
     renderRecommendations(experiment.recommendations) + '\n';
   return `# Harness comparison\n\n**${comparison.status}**\n\n` +
-    `| Metric | Baseline | Candidate | Delta | Signal |\n|---|---:|---:|---:|---|\n${rows}\n${assessment}${navigation}${incompatible}`;
+    `| Metric | Baseline | Candidate | Delta | Signal | Baseline range | Candidate range |\n|---|---:|---:|---:|---|---|---|\n${rows}\n${assessment}${navigation}${incompatible}\n## Baseline\n\n${renderRun(comparison.baseline)}\n## Candidate\n\n${renderRun(comparison.candidate)}`;
 }
 
 function renderFindings(findings) {
@@ -397,11 +409,11 @@ function sequences(items) {
 }
 
 function printHelp(code) {
-  process.stdout.write(`Usage: node compare.mjs --baseline <run-dir> --candidate <run-dir> [--threshold 5] [--fail-on-regression] [--output file.json]\n`);
+  process.stdout.write(`Usage: node compare.mjs --baseline <run-dir|summary.json> --candidate <run-dir|summary.json> [--threshold 5] [--fail-on-regression] [--output file.json]\n`);
   process.exitCode = code;
 }
 
-try {
+if (process.argv[1] && canonicalPath(process.argv[1]) === fileURLToPath(import.meta.url)) try {
   main();
 } catch (error) {
   process.stderr.write(`repository-overview compare: ${error.message}\n`);

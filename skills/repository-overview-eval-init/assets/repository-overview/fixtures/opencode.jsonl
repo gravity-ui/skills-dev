@@ -1,0 +1,6 @@
+{"type":"step_start"}
+{"type":"tool_use","part":{"id":"cmd","type":"tool","tool":"bash","state":{"input":{"command":"cat README.md"},"status":"running","output":"earlier useful output"}}}
+{"type":"tool_use","part":{"id":"cmd","type":"tool","tool":"bash","state":{"status":"error","error":"command failed"}}}
+{"type":"text","part":{"id":"answer","type":"text","text":"Fixture answer"}}
+{"type":"step_finish","part":{"id":"step","type":"step-finish","tokens":{"input":100,"output":20,"cache":{"read":400,"write":50}}}}
+{"type":"step_finish","part":{"id":"step","type":"step-finish","tokens":{"input":100,"output":20,"cache":{"read":400,"write":50}}}}

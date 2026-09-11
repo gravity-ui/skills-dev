@@ -1,4 +1,5 @@
-import {finalToolEvent, findCost, normalizeUsage, textFromContent} from './shared.mjs';
+import {modelIdentifiers, diagnostics, eventCollector, toolClass} from './events.mjs';
+import {findCost, normalizeUsage, textFromContent} from './shared.mjs';
 
 export function command({repo, model, effort, prompt}) {
   const args = [
@@ -10,13 +11,13 @@ export function command({repo, model, effort, prompt}) {
   return {executable: 'claude', args, cwd: repo};
 }
 
-export function normalize(events) {
+export function normalize(events, stderr = '') {
   let response = '';
   let usage = normalizeUsage();
   let reportedCostUsd = null;
-  const trace = [];
-  const toolCalls = new Map();
-  const hostErrors = [];
+  const collector = eventCollector();
+  const toolCalls = collector.byId;
+  const hostErrors = stderr.split(/\r?\n/u);
   for (const event of events) {
     if (event.type === 'assistant') {
       const content = event.message?.content ?? [];
@@ -24,9 +25,7 @@ export function normalize(events) {
       if (text) response += `${response ? '\n' : ''}${text}`;
       for (const part of content) {
         if (part?.type === 'tool_use') {
-          const toolCall = finalToolEvent(part.name, part.input, null, null, {status: null, exitCode: null});
-          trace.push(toolCall);
-          if (part.id) toolCalls.set(part.id, toolCall);
+          collector.tool(part.id, part.name, part.input, null, 'in_progress', null, toolClass(part.name));
         }
       }
     }
@@ -43,26 +42,13 @@ export function normalize(events) {
     }
     if (event.type === 'result') {
       if (typeof event.result === 'string' && event.result) response = event.result;
-      if (event.usage) usage = claudeUsage(event.usage);
+      if (event.usage) usage = normalizeUsage(event.usage, {inputIncludesCache: false});
       if (event.is_error || event.subtype === 'error') hostErrors.push(event.result ?? event.error ?? 'Unknown Claude error');
     }
     if (event.type === 'error') hostErrors.push(event.error?.message ?? event.message ?? 'Unknown Claude error');
+    if (!['assistant', 'user', 'result', 'error', 'system', 'rate_limit_event'].includes(event.type)) collector.parserWarnings.push(`Unsupported Claude event: ${event.type}`);
     const cost = findCost(event);
     if (cost !== null) reportedCostUsd = cost;
   }
-  return {response, usage, reportedCostUsd, trace, hostErrors};
-}
-
-function claudeUsage(raw) {
-  const usage = normalizeUsage(raw);
-  // Anthropic reports uncached, cache-read, and cache-creation input as disjoint counters.
-  const knownInput = [usage.input, usage.cachedInput, usage.cacheCreationInput]
-    .filter((value) => value !== null);
-  const input = knownInput.length
-    ? knownInput.reduce((total, value) => total + value, 0)
-    : null;
-  const total = input === null && usage.output === null
-    ? null
-    : (input ?? 0) + (usage.output ?? 0);
-  return {...usage, input, total};
+  return {response, usage, reportedCostUsd, modelIdentifiers: modelIdentifiers(events), ...collector.finish(), ...diagnostics(hostErrors, 'claude')};
 }

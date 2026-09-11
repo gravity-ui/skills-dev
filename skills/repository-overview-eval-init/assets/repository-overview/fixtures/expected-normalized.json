@@ -1,0 +1,5 @@
+{
+  "codex": {"response": "The package is fixture-package (package.json).", "input": 1000, "cachedInput": 400, "cacheCreationInput": null, "output": 20, "total": 1020, "toolKinds": ["command", "mcp", "web"], "failedTools": 1, "warnings": 1, "errors": 0},
+  "claude": {"response": "Fixture answer", "input": 550, "cachedInput": 400, "cacheCreationInput": 50, "output": 20, "total": 570, "toolKinds": ["command", "mcp"], "failedTools": 1, "warnings": 0, "errors": 0},
+  "opencode": {"response": "Fixture answer", "input": 550, "cachedInput": 400, "cacheCreationInput": 50, "output": 20, "total": 570, "toolKinds": ["command"], "failedTools": 1, "warnings": 0, "errors": 0}
+}

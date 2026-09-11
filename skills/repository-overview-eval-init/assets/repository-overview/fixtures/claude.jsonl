@@ -1,0 +1,4 @@
+{"type":"system","subtype":"init"}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"read","name":"Read","input":{"file_path":"README.md"}},{"type":"tool_use","id":"mcp","name":"mcp__docs__read","input":{"path":"guide.md"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"read","content":"read failed","is_error":true},{"type":"tool_result","tool_use_id":"mcp","content":"Documentation"}]}}
+{"type":"result","result":"Fixture answer","usage":{"input_tokens":100,"output_tokens":20,"cache_read_input_tokens":400,"cache_creation_input_tokens":50}}

@@ -1,17 +1,22 @@
 {
   "name": "gravity-ui-dev-skills",
-  "version": "1.1.1",
+  "version": "2.0.0",
   "description": "Skills for developing in Gravity UI repositories",
-  "keywords": ["pi-package"],
+  "keywords": [
+    "pi-package"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/gravity-ui/skills-dev"
   },
   "scripts": {
-    "validate": "node scripts/validate_skills.mjs"
+    "validate": "node scripts/validate_skills.mjs",
+    "test": "node --test skills/repository-overview-eval-init/assets/repository-overview/tests/*.test.mjs skills/repository-overview-eval-init/tests/*.test.mjs"
   },
   "pi": {
-    "skills": ["skills"]
+    "skills": [
+      "skills"
+    ]
   }
 }

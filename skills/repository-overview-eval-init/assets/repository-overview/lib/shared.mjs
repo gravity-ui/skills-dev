@@ -7,7 +7,9 @@ export function parseJsonLines(raw) {
   for (const [index, line] of raw.split(/\r?\n/).entries()) {
     if (!line.trim()) continue;
     try {
-      events.push(JSON.parse(line));
+      const event = JSON.parse(line);
+      if (!event || typeof event !== 'object' || Array.isArray(event) || typeof event.type !== 'string') throw new Error('Invalid event');
+      events.push(event);
     } catch {
       malformed.push({line: index + 1, text: line});
     }
@@ -24,9 +26,9 @@ export function textFromContent(content) {
     .join('\n');
 }
 
-export function normalizeUsage(value = {}) {
+export function normalizeUsage(value = {}, {inputIncludesCache = true} = {}) {
   const cache = value.cache ?? {};
-  const input = number(value.input_tokens ?? value.inputTokens ?? value.input ?? value.prompt_tokens);
+  let input = number(value.input_tokens ?? value.inputTokens ?? value.input ?? value.prompt_tokens);
   const cachedInput = number(
     value.cached_input_tokens
       ?? value.cache_read_input_tokens
@@ -47,6 +49,7 @@ export function normalizeUsage(value = {}) {
       ?? value.reasoningTokens
       ?? value.reasoning,
   );
+  if (!inputIncludesCache) input = sumKnown(input, cachedInput, cacheCreationInput);
   const explicitTotal = number(value.total_tokens ?? value.totalTokens ?? value.total);
   return {
     input,
@@ -124,7 +127,8 @@ export function referencedPaths(events, repoRoot, inventory) {
         const absolute = resolve(repoRoot, cleaned);
         if (absolute.startsWith(`${resolve(repoRoot)}${sep}`) && existsSync(absolute)) {
           try {
-            if (statSync(absolute).isFile()) add(relative(repoRoot, absolute).split(sep).join('/'), eventIndex, event.name);
+            const stat = statSync(absolute);
+            if (stat.isFile() || stat.isDirectory()) add(relative(repoRoot, absolute).split(sep).join('/') + (stat.isDirectory() ? '/' : ''), eventIndex, event.name);
           } catch {
             // A path may disappear between the existence and stat checks; ignore it.
           }
@@ -147,6 +151,35 @@ export function referencedPaths(events, repoRoot, inventory) {
 export function evaluateAssertions(assertions, response, paths, inventory, context = {}) {
   return assertions.map((assertion) => {
     const base = {id: assertion.id, group: assertion.group ?? 'quality', description: assertion.description};
+    const matches = (pattern, value) => new RegExp(pattern, assertion.flags ?? 'iu').test(value);
+    const result = (passed, evidence, skipped = false) => ({...base, passed, skipped, evidence});
+    if (assertion.type === 'answer-fact-with-source') {
+      const sources = inventory.filter((file) => assertion.patterns.some((p) => matches(p, file)));
+      if (!sources.length && assertion.optional) return result(true, 'Optional source does not exist', true);
+      const passed = response.split(/\n\s*\n/u).some((paragraph) =>
+        matches(assertion.pattern, paragraph) && sources.some((file) => paragraph.includes(file)));
+      return result(passed, passed ? 'Fact and source appear in the same paragraph' : 'Expected fact with an existing source citation');
+    }
+    if (assertion.type === 'trace-path-required' || assertion.type === 'trace-paths-before') {
+      const first = [];
+      for (const pattern of assertion.patterns) {
+        const existing = inventory.some((file) => matches(pattern, file));
+        if (!existing && assertion.optional) continue;
+        const visits = paths.filter(({path}) => matches(pattern, path));
+        if (!existing || !visits.length) return result(false, `Required path missing or unvisited: ${pattern}`);
+        first.push(Math.min(...visits.map(({eventIndex}) => eventIndex)));
+      }
+      if (!first.length) return result(true, 'No optional paths exist', true);
+      if (assertion.type === 'trace-path-required') return result(true, 'All required patterns visited');
+      const source = paths.filter(({path}) => assertion.before.some((p) => matches(p, path)));
+      const passed = !source.length || Math.max(...first) < Math.min(...source.map(({eventIndex}) => eventIndex));
+      return result(passed, passed ? 'Required documents precede observed implementation paths' : 'Implementation visited before or together with required documents');
+    }
+    if (assertion.type === 'max-unique-paths') {
+      const actual = new Set(paths.map(({path}) => path)).size;
+      return result(actual <= assertion.maximum, `${actual} unique paths; maximum ${assertion.maximum}`);
+    }
+    if (assertion.type === 'no-web-search') return result(context.webSearchCalls === 0, `${context.webSearchCalls ?? 'unknown'} web searches`);
     if (assertion.type === 'answer-regex') {
       const passed = new RegExp(assertion.pattern, assertion.flags ?? 'iu').test(response);
       return {...base, passed, skipped: false, evidence: passed ? `Matched /${assertion.pattern}/` : 'Pattern was not found'};
@@ -162,7 +195,7 @@ export function evaluateAssertions(assertions, response, paths, inventory, conte
       };
     }
     if (assertion.type === 'trace-path-if-present') {
-      const candidates = inventory.filter((file) => assertion.patterns.some((pattern) => new RegExp(pattern, 'iu').test(file)));
+      const candidates = inventory.filter((file) => assertion.patterns.some((pattern) => matches(pattern, file)));
       if (!candidates.length) return {...base, passed: true, skipped: true, evidence: 'No matching file exists in this repository'};
       const visited = paths.filter(({path}) => candidates.includes(path)).map(({path}) => path);
       return {
@@ -173,7 +206,7 @@ export function evaluateAssertions(assertions, response, paths, inventory, conte
       };
     }
     if (assertion.type === 'trace-path-not-seen') {
-      const visited = paths.filter(({path}) => assertion.patterns.some((pattern) => new RegExp(pattern, 'iu').test(path))).map(({path}) => path);
+      const visited = paths.filter(({path}) => assertion.patterns.some((pattern) => matches(pattern, path))).map(({path}) => path);
       return {
         ...base,
         passed: visited.length === 0,
@@ -204,23 +237,7 @@ export function assertionScores(assertions) {
     if (!applicable.length) return null;
     return applicable.filter((item) => item.passed).length / applicable.length;
   };
-  return {quality: score('quality'), route: score('route')};
-}
-
-export function estimateCost(usage, host, model, catalog) {
-  const entry = catalog?.models?.[`${host}/${model}`] ?? catalog?.models?.[model];
-  if (!entry) return null;
-  const input = usage.input ?? 0;
-  const cached = Math.min(usage.cachedInput ?? 0, input);
-  const cacheCreation = Math.min(usage.cacheCreationInput ?? 0, Math.max(0, input - cached));
-  const uncached = Math.max(0, input - cached - cacheCreation);
-  const output = usage.output ?? 0;
-  return (
-    uncached * (entry.inputPerMillion ?? 0)
-    + cached * (entry.cachedInputPerMillion ?? entry.inputPerMillion ?? 0)
-    + cacheCreation * (entry.cacheCreationInputPerMillion ?? entry.inputPerMillion ?? 0)
-    + output * (entry.outputPerMillion ?? 0)
-  ) / 1_000_000;
+  return {structural: score('structural'), quality: score('quality'), route: score('route')};
 }
 
 export function median(values) {
@@ -268,6 +285,13 @@ export function parseArgs(args, booleanFlags = []) {
   return out;
 }
 
+export function validateOptions(options, supported) {
+  const allowed = new Set(supported);
+  for (const key of Object.keys(options)) {
+    if (!allowed.has(key)) throw new Error(`Unsupported option: --${key.replace(/[A-Z]/gu, (letter) => `-${letter.toLowerCase()}`)}`);
+  }
+}
+
 export function format(value) {
   return value === null || value === undefined ? 'n/a' : Number.isInteger(value) ? String(value) : value.toFixed(4);
 }
@@ -276,7 +300,7 @@ export function formatPercent(value) {
   return value === null || value === undefined ? 'n/a' : `${(value * 100).toFixed(1)}%`;
 }
 
-function collectStrings(value, out = []) {
+export function collectStrings(value, out = []) {
   if (typeof value === 'string') out.push(value);
   else if (Array.isArray(value)) value.forEach((child) => collectStrings(child, out));
   else if (value && typeof value === 'object') Object.values(value).forEach((child) => collectStrings(child, out));

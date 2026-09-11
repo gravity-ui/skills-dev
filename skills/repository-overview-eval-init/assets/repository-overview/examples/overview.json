@@ -1,0 +1,59 @@
+{
+  "id": "custom-overview",
+  "version": 1,
+  "prompt": "Explain the packages, architecture, stack and invariants of this repository. Read only. Cite authoritative repository sources. Do not use the eval, reports or raw artifacts as sources.",
+  "assertions": [
+    {
+      "id": "fact",
+      "group": "quality",
+      "type": "answer-fact-with-source",
+      "pattern": "YOUR_EXPECTED_FACT",
+      "patterns": [
+        "^YOUR_SOURCE_PATH$"
+      ]
+    },
+    {
+      "id": "docs-first",
+      "group": "route",
+      "type": "trace-paths-before",
+      "patterns": [
+        "^YOUR_NAVIGATION_PATH$",
+        "^YOUR_ARCHITECTURE_PATH$"
+      ],
+      "before": [
+        "^YOUR_IMPLEMENTATION_PREFIX/"
+      ]
+    },
+    {
+      "id": "tool-budget",
+      "group": "route",
+      "type": "max-tool-calls",
+      "maximum": 30
+    },
+    {
+      "id": "unique-path-budget",
+      "group": "route",
+      "type": "max-unique-paths",
+      "maximum": 40
+    },
+    {
+      "id": "revisit-budget",
+      "group": "route",
+      "type": "max-path-revisits",
+      "maximum": 5
+    },
+    {
+      "id": "no-web",
+      "group": "route",
+      "type": "no-web-search"
+    },
+    {
+      "id": "avoid-eval",
+      "group": "route",
+      "type": "trace-path-not-seen",
+      "patterns": [
+        "^\\.agents/evals/repository-overview/"
+      ]
+    }
+  ]
+}

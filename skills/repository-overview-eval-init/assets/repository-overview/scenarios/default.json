@@ -1,0 +1,79 @@
+{
+  "id": "repository-overview",
+  "version": 6,
+  "prompt": "Explain this repository: what applications or packages it contains, how its architecture is organized, which technology stack it uses, and which important invariants developers must follow. Inspect the repository read-only. Do not use the eval itself or previous artifacts in .agents/evals/repository-overview as sources of information about the repository. Support substantive claims with relative file paths. Structure the answer using the sections \"Applications and packages\", \"Architecture\", \"Technology stack\", and \"Invariants\".",
+  "assertions": [
+    {
+      "id": "answer-applications",
+      "group": "structural",
+      "type": "answer-regex",
+      "description": "The answer describes applications or packages",
+      "pattern": "(?:\u043f\u0440\u0438\u043b\u043e\u0436\u0435\u043d\u0438|\u043f\u0430\u043a\u0435\u0442|applications?|packages?)"
+    },
+    {
+      "id": "answer-architecture",
+      "group": "structural",
+      "type": "answer-regex",
+      "description": "The answer has an architecture section",
+      "pattern": "(?:\u0430\u0440\u0445\u0438\u0442\u0435\u043a\u0442\u0443\u0440|architecture)"
+    },
+    {
+      "id": "answer-stack",
+      "group": "structural",
+      "type": "answer-regex",
+      "description": "The answer has a technology stack section",
+      "pattern": "(?:\u0441\u0442\u0435\u043a|stack)"
+    },
+    {
+      "id": "answer-invariants",
+      "group": "structural",
+      "type": "answer-regex",
+      "description": "The answer describes repository invariants",
+      "pattern": "(?:\u0438\u043d\u0432\u0430\u0440\u0438\u0430\u043d\u0442|invariants?)"
+    },
+    {
+      "id": "answer-cites-sources",
+      "group": "structural",
+      "type": "answer-existing-paths",
+      "description": "The answer cites at least two real repository files",
+      "minimum": 2
+    },
+    {
+      "id": "route-readme",
+      "group": "route",
+      "type": "trace-path-if-present",
+      "description": "The agent consults a repository README when one exists",
+      "patterns": [
+        "^README(?:\\.[^/]+)?$"
+      ]
+    },
+    {
+      "id": "route-manifest",
+      "group": "route",
+      "type": "trace-path-if-present",
+      "description": "The agent consults a package or workspace manifest when one exists",
+      "patterns": [
+        "^package\\.json$",
+        "^pnpm-workspace\\.yaml$",
+        "^Cargo\\.toml$",
+        "^go\\.mod$",
+        "^pyproject\\.toml$"
+      ]
+    },
+    {
+      "id": "route-avoids-eval-sources",
+      "group": "route",
+      "type": "trace-path-not-seen",
+      "description": "The agent does not use the eval or previous eval artifacts as repository sources",
+      "patterns": [
+        "^\\.agents/evals/repository-overview/"
+      ]
+    },
+    {
+      "id": "route-no-web",
+      "group": "route",
+      "type": "no-web-search",
+      "description": "No web search calls"
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "releases": [
+    {
+      "version": "1.1.0",
+      "commit": "97850d1",
+      "files": {
+        "EVAL.md": "02fed2bd3bd51675b32dded4495c474ce73e92526eb43143ef644470697a27e2",
+        "README.md": "5cd31a675a58f54d7763c69732bee98b53b97ab9f4bf8788f51226a8408387f3",
+        "artifact.schema.json": "d751cafb51a0fccf0042453cde1ef18dd9acaca767dc262fb528d59653cd8d33",
+        "compare.mjs": "a28bbddae655694b804df6f17a7eb314df8d885bcad59cfe5d6fb251c063d034",
+        "lib/claude.mjs": "baa36d9acda3bfcf86d2fb548cd66c3aef107552cf918b0bdde93c05b4a13f4e",
+        "lib/codex.mjs": "6e63085b3128c41a92d3110d7fc18e9b011c7ccf72b78b61b568b7f6eacfa21a",
+        "lib/opencode.mjs": "3a3f4c9d28a145b604b9fbdc7bbe76bf1ae51d4c3da5c8dee90a6316a5dc6a8a",
+        "lib/shared.mjs": "f75d3c1aa287ee512aaf5b7d3ffb419a573e05db40666983d148131d6a602984",
+        "prices.json": "e54611d159cc1343f2290ba821fc0d3b04f6d08b88f746ee8c198cb60d9b4fc6",
+        "run.mjs": "fcfd5977099c2fb6feaddb7c51ce66491e9e6ffefdc57ca3535cc9a45f043737",
+        "scenario.json": "dc694eb95d088bf089f2609d18a88b141fef873966700c062ef9bc794b522120"
+      }
+    },
+    {
+      "version": "1.1.1",
+      "commit": "d00b7f4",
+      "files": {
+        "EVAL.md": "e5994894d5b6d251214e32ee8da95e3543185ba5a9414b4a4676b2ed8a13d1cf",
+        "README.md": "92f166a69c8a76a2db57978b93f5eec7f3f46a3efc3a0dc53ad4c170479983fb",
+        "artifact.schema.json": "d751cafb51a0fccf0042453cde1ef18dd9acaca767dc262fb528d59653cd8d33",
+        "compare.mjs": "44348245694fd8bace4f4226df0c64277cc542016f8fe3106295a86547f21336",
+        "lib/claude.mjs": "baa36d9acda3bfcf86d2fb548cd66c3aef107552cf918b0bdde93c05b4a13f4e",
+        "lib/codex.mjs": "6e63085b3128c41a92d3110d7fc18e9b011c7ccf72b78b61b568b7f6eacfa21a",
+        "lib/opencode.mjs": "3a3f4c9d28a145b604b9fbdc7bbe76bf1ae51d4c3da5c8dee90a6316a5dc6a8a",
+        "lib/shared.mjs": "f75d3c1aa287ee512aaf5b7d3ffb419a573e05db40666983d148131d6a602984",
+        "prices.json": "e54611d159cc1343f2290ba821fc0d3b04f6d08b88f746ee8c198cb60d9b4fc6",
+        "run.mjs": "93a47316166b97434b03d7ad9dc8a048d372d31d4d377eb683270809734ee39b",
+        "scenario.json": "952cf0697a868d1ebdf2429f46b447d199b706b8ce21a6b298f43ad10fb6a279"
+      }
+    }
+  ]
+}
